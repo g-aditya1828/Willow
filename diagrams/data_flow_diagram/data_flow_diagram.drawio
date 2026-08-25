@@ -1,0 +1,210 @@
+<mxfile host="app.diagrams.net" agent="Claude" pages="2">
+  <diagram name="DFD Level 0 - Context" id="willow-dfd-l0">
+    <mxGraphModel dx="1288" dy="703" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="650" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ent_user0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" value="User&#xa;(Consumer)" vertex="1">
+          <mxGeometry height="70" width="160" x="40" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="proc0" parent="1" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" value="0&#xa;Willow&#xa;Ingredient Scanner System" vertex="1">
+          <mxGeometry height="100" width="240" x="380" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="ent_ocr0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" value="OCR / Vision&#xa;Provider (External API)" vertex="1">
+          <mxGeometry height="70" width="180" x="780" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" edge="1" parent="1" source="ent_user0" style="html=1;endArrow=block;fontSize=10;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="proc0" value="Product photo /&#xa;manually entered ingredients">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f2" edge="1" parent="1" source="proc0" style="html=1;endArrow=block;fontSize=10;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="ent_user0" value="Ingredient analysis, risk score,&#xa;flags &amp; healthier alternatives">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f3" edge="1" parent="1" source="proc0" style="html=1;endArrow=block;fontSize=10;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="ent_ocr0" value="Ingredient panel image">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f4" edge="1" parent="1" source="ent_ocr0" style="html=1;endArrow=block;fontSize=10;edgeStyle=orthogonalEdgeStyle;rounded=0;" target="proc0" value="Raw OCR / vision text">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="DFD Level 1" id="willow-dfd-l1">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <!-- External entities -->
+        <mxCell id="ent_user" value="User&#xa;(Consumer)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ent_ocr" value="OCR / Vision&#xa;Provider" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="20" width="140" height="60" as="geometry" />
+        </mxCell>
+        <!-- Processes -->
+        <mxCell id="p1" value="1.0&#xa;Capture &amp;&#xa;Validate Photo" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="430" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="2.0&#xa;Extract Ingredient&#xa;Text (OCR)" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="440" y="150" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="3.0&#xa;Normalize &amp; Parse&#xa;Ingredient List" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="660" y="150" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="4.0&#xa;Check Ingredients&#xa;Against DB" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="880" y="150" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p5" value="5.0&#xa;Generate Risk&#xa;Score &amp; Flags" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="150" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p6" value="6.0&#xa;Classify Product&#xa;Sub-Category (Fallback)" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="440" y="430" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p7" value="7.0&#xa;Generate Alternative&#xa;Suggestions" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="430" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p8" value="8.0&#xa;Compile &amp; Present&#xa;Results" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="800" y="600" width="150" height="80" as="geometry" />
+        </mxCell>
+        <!-- Data stores -->
+        <mxCell id="d1" value="D1  Ingredients &amp; Aliases DB&#xa;(canonical names, health effects)" style="shape=partialRectangle;whiteSpace=wrap;html=1;top=1;left=1;bottom=1;right=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="880" y="280" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="D2  Category Configuration&#xa;(harm rules, classification rules)" style="shape=partialRectangle;whiteSpace=wrap;html=1;top=1;left=1;bottom=1;right=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="280" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="D3  Generic Risk Profiles&#xa;(category-level fallback data)" style="shape=partialRectangle;whiteSpace=wrap;html=1;top=1;left=1;bottom=1;right=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="d4" value="D4  Alternatives DB&#xa;(products by category &amp; price band)" style="shape=partialRectangle;whiteSpace=wrap;html=1;top=1;left=1;bottom=1;right=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="560" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="d5" value="D5  Image Storage&#xa;(uploaded product photos)" style="shape=partialRectangle;whiteSpace=wrap;html=1;top=1;left=1;bottom=1;right=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="220" y="280" width="200" height="50" as="geometry" />
+        </mxCell>
+        <!-- Flows -->
+        <mxCell id="e1" value="Product photo" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="ent_user" target="p1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="Store image" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p1" target="d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="Retake prompt&#xa;(low confidence)" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p1" target="ent_user">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="Validated photo" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="Image data" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p2" target="ent_ocr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="Raw OCR text" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="ent_ocr" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="90" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="Raw extracted text" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="No text detected" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" edge="1" parent="1" source="p2" target="p6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="515" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="Alias lookup" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p3" target="d1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="735" y="305" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="Structured&#xa;ingredient list" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="Harm data lookup" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p4" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="Flagged / matched&#xa;ingredients" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="Category harm rules" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p5" target="d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="Manually entered&#xa;ingredients" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="ent_user" target="p6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="90" y="510" />
+              <mxPoint x="90" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e15" value="Classification rules" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p6" target="d2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="960" y="470" />
+              <mxPoint x="960" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" value="Generic profile lookup" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p6" target="d3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" value="Risk score, flags &amp;&#xa;health-effect notes" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p5" target="p8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1175" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e18" value="Category &amp; generic&#xa;risk profile" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p6" target="p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="Flagged ingredients&#xa;+ category" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p5" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" value="Alternatives lookup" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p7" target="d4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" value="Suggested&#xa;alternatives" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p7" target="p8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" value="Final results: ingredients, flags,&#xa;risk score, alternatives, confidence" style="html=1;endArrow=block;fontSize=9;edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" parent="1" source="p8" target="ent_user">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="875" y="750" />
+              <mxPoint x="90" y="750" />
+              <mxPoint x="90" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
