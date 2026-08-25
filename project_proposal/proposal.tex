@@ -1,0 +1,290 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+% ---------- Colors ----------
+\definecolor{navy}{HTML}{1E2761}
+\definecolor{coral}{HTML}{D85A30}
+\definecolor{muted}{HTML}{5F5E5A}
+
+% ---------- Section styling ----------
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{navy}}{\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{navy}}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{18pt}{8pt}
+\titlespacing*{\subsection}{0pt}{12pt}{6pt}
+
+% ---------- Header/Footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\small\color{muted}Willow --- MVP Project Proposal}
+\fancyfoot[R]{\small\color{muted}\thepage}
+
+% ---------- Hyperlink styling ----------
+\hypersetup{
+  colorlinks=true,
+  linkcolor=coral,
+  urlcolor=coral,
+  citecolor=coral,
+  pdftitle={Willow - MVP Project Proposal},
+  pdfauthor={}
+}
+
+\newcommand{\priority}[1]{%
+  \ifnum\pdfstrcmp{#1}{Must}=0 \textcolor{navy}{\textbf{Must-have}}%
+  \else\ifnum\pdfstrcmp{#1}{Should}=0 \textcolor{coral}{Should-have}%
+  \else \textcolor{muted}{Could-have}%
+  \fi\fi
+}
+
+\setlist[itemize]{leftmargin=1.4em, itemsep=2pt, topsep=4pt}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=2pt, topsep=4pt}
+
+\begin{document}
+
+% ---------------- Title Page ----------------
+\begin{titlepage}
+\centering
+\vspace*{2.2cm}
+
+{\color{navy}\rule{\linewidth}{1.2pt}}
+
+\vspace{0.8cm}
+{\Huge\bfseries\color{navy} Willow - Know whats really in it}\\[0.4cm]
+{\Large\color{coral} MVP Project Proposal}
+
+\vspace{0.5cm}
+{\color{navy}\rule{\linewidth}{1.2pt}}
+
+\vspace{1.6cm}
+{\large An AI-based product ingredient scanner for the Indian market}
+
+\vspace{0.4cm}
+{\normalsize\color{muted} Flagging harmful ingredients and suggesting healthier alternatives \\ from a single product photograph}
+
+\vfill
+
+\begin{tabularx}{0.7\linewidth}{lX}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{thapar.jpeg}
+    \label{fig:placeholder}
+\end{figure}
+
+\textbf{Course:} & Software Engineering (UCS 503)\\
+\textbf{Team:} & Aditya Gupta  1024160001 \newline 
+\href {mail.to : agupta6_be24@thapar.edu} {agupta6_be24@thapar.edu} \newline\ 
+                 Akanksha Thakur  1024160019 \newline
+\href{mailto: athakur3_be24@thapar.edu}{ athakur3_be24@thapar.edu}\\
+\textbf{Domain:} & Computer Vision, NLP, Full-Stack Development \\
+\end{tabularx}
+
+\vspace{1.5cm}
+{\small\color{muted}\today}
+
+\end{titlepage}
+
+% ---------------- Table of Contents ----------------
+\tableofcontents
+\newpage
+
+% ==========================================================
+\section{Introduction}
+Packaged and locally sold food products in India frequently carry ingredient information that is incomplete, inconsistent, or entirely absent from a consumer's point of view. Rising health consciousness among Indian consumers has increased demand for tools that explain what is actually inside a product, yet the tools that exist today are not built for this market.
+
+This proposal outlines a Minimum Viable Product (MVP) for an \textbf{Ingredient Scanner App - Willow}: a system that lets a user photograph a packaged food product and receive an analysis of its ingredients which ones are potentially harmful, what health effects they are associated with, and what healthier alternatives exist in the same category and price range. The system is designed around image-based extraction rather than barcode lookup, so it can meaningfully cover local and unbranded Indian products that barcode-database-driven tools cannot.
+
+% ==========================================================
+\section{Motivation}
+Three factors motivate this project:
+
+\begin{itemize}
+  \item \textbf{A documented food safety problem.} Indian regulatory bodies have repeatedly intercepted adulterated food products in recent years, including large seizures of adulterated spices, and Indian spice brands have faced bans abroad over pesticide contamination. This reflects a real, ongoing information gap between what consumers buy and what they know about it.
+  \item \textbf{Rising health awareness with no matching tool.} Indian consumers increasingly want to make informed choices about food and personal care products, but existing ingredient-scanning apps are calibrated to Western labeling standards, additive lists, and barcode-indexed brands.
+  \item \textbf{A structural gap in existing tools.} Global scanning apps rely on barcode-to-database lookups. This approach systematically fails for unbranded, regional, and small-vendor Indian products a large share of the market because these products are rarely barcode-indexed in the first place.
+\end{itemize}
+
+% ==========================================================
+\section{Problem Statement}
+Existing ingredient-scanning solutions available to Indian consumers are inadequate for three concrete reasons:
+
+\begin{enumerate}
+  \item \textbf{Barcode dependency excludes most local products.} Apps such as Yuka rely on barcode databases populated primarily with branded, internationally distributed products, leaving unbranded and regional Indian products unscanned.
+  \item \textbf{Many local products carry no printed ingredient list at all.} Local sweets, bakery items, and loose-packaged snacks are common in the Indian market and frequently have no ingredient panel to read, which barcode- or OCR-only approaches cannot handle.
+  \item \textbf{Scoring standards are not localized.} Existing tools apply EU/US additive standards rather than FSSAI guidelines, and do not account for allergens or ingredients (e.g., Ayurvedic/traditional ingredients) specific to the Indian market.
+\end{enumerate}
+
+There is, at present, no widely available tool that combines image-based (non-barcode) ingredient extraction with India-specific harmful-ingredient scoring and locally relevant alternative suggestions.
+
+% ==========================================================
+\section{Proposed Solution}
+The proposed system follows a four-stage pipeline: \newline\textit{Photo} $\rightarrow$ \textit{Extraction} $\rightarrow$ \textit{Classification} $\rightarrow$ \textit{Result}.
+
+\begin{enumerate}
+  \item \textbf{Photo capture.} The user captures or uploads a photograph of a product's ingredient panel.
+  \item \textbf{Extraction.} A vision/OCR-based extraction service reads the ingredient panel and produces a structured ingredient list, resolving naming variants (e.g., E621, MSG, Ajinomoto) to a single canonical ingredient.
+  \item \textbf{Classification.} Each extracted ingredient is checked against a curated harmful-ingredients database. Flagged ingredients are shown with a plain-language explanation of their associated health effects, and an overall product risk indicator is generated.
+  \item \textbf{Result and alternatives.} The user is shown the full analysis along with healthier alternative products in the same category and a comparable price range.
+\end{enumerate}
+
+\subsection{Handling products with no ingredient list}
+When no ingredient list can be extracted a common case for unbranded and local Indian products the system falls back to a \textbf{category-level generic risk profile} rather than failing or guessing. The product is classified into a known food sub-category (e.g., namkeen, bakery, sweets) using available text and visual cues, and a generic, clearly labeled "estimated, not exact" risk summary is shown instead of a fabricated exact analysis.
+
+\subsection{Design principle: built to extend}
+Although the MVP is scoped to a single product category (food), the system is architected so that category-specific behavior ingredients, harm rules, and alternatives is driven by data and configuration rather than hard-coded logic. This means additional categories (e.g., cosmetics, spices as a flagship sub-case) and additional languages can be added later without redesigning the core extraction, classification, or alternatives modules.
+
+% ==========================================================
+\section{MVP Scope}
+
+\subsection{In scope}
+\begin{itemize}
+  \item Single product category: packaged food, including packaged spices/masalas as a flagship sub-case.
+  \item English-language ingredient labels (Hindi as a stretch goal).
+  \item Photo-based ingredient extraction with no barcode dependency.
+  \item A curated harmful-ingredients database covering approximately 150--300 common ingredients and additives.
+  \item Category-level generic risk profiling as a fallback for unbranded/local products.
+  \item Rule-based healthier-alternative suggestions.
+\end{itemize}
+
+\subsection{Out of scope for MVP (future work)}
+\begin{itemize}
+  \item Additional categories: cosmetics/personal care, oral care, household cleaning, supplements.
+  \item Crowdsourced ingredient database contributions at scale.
+  \item FSSAI license number lookup and verification (FoSCoS integration).
+  \item Regional-language OCR support beyond English.
+  \item Visual product-matching for previously seen unbranded products.
+\end{itemize}
+
+% ==========================================================
+\section{Functional Requirements}
+
+\begin{longtable}{@{}p{1.6cm}p{9.7cm}p{2.3cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Priority} \\
+\midrule
+\endhead
+FR-1  & User can capture a product photo using the device camera or upload an existing image. & \priority{Must} \\
+FR-2  & App provides basic capture guidance (lighting, framing) to improve extraction accuracy. & \priority{Should} \\
+FR-3  & App validates image quality and prompts a retake if extraction confidence is low. & \priority{Should} \\
+FR-4  & System extracts raw text from the ingredient panel using an OCR/vision API. & \priority{Must} \\
+FR-5  & System parses raw extracted text into a clean, structured ingredient list. & \priority{Must} \\
+FR-6  & System normalizes ingredient name variants and aliases to a single canonical entity. & \priority{Must} \\
+FR-7  & Extraction module is abstracted behind an internal interface so the OCR/vision provider can be swapped. & \priority{Must} \\
+FR-8  & System checks each extracted ingredient against the harmful-ingredients database. & \priority{Must} \\
+FR-9  & System displays flagged ingredients with a plain-language explanation of health effects. & \priority{Must} \\
+FR-10 & System assigns an overall product risk indicator based on flagged ingredients. & \priority{Should} \\
+FR-11 & Classification logic reads category-specific rules from configuration/data, not hard-coded per category. & \priority{Must} \\
+FR-12 & If no ingredient list is detected, system attempts to classify the product into a known food sub-category. & \priority{Must} \\
+FR-13 & System shows a generic, category-level risk profile with a clear "estimated, not exact" disclaimer. & \priority{Must} \\
+FR-14 & If a visible FSSAI license number is detected, system surfaces it as a trust signal. & \priority{Could} \\
+FR-15 & User can manually enter known ingredients when no list or category match is found. & \priority{Should} \\
+FR-16 & System suggests alternative products in the same category with fewer/no flagged ingredients. & \priority{Must} \\
+FR-17 & Suggested alternatives are matched within a comparable price range. & \priority{Should} \\
+FR-18 & App displays extracted ingredients, flags, health-effect notes, and alternatives on one results screen. & \priority{Must} \\
+FR-19 & App clearly indicates the confidence level of the analysis. & \priority{Must} \\
+\bottomrule
+\end{longtable}
+
+% ==========================================================
+\section{Non-Functional Requirements}
+
+\begin{longtable}{@{}p{3.4cm}p{10.2cm}@{}}
+\toprule
+\textbf{Category} & \textbf{Requirement} \\
+\midrule
+\endhead
+Scalability \& Extensibility & New product categories can be added via data/configuration changes, without modifying the extraction, classification, or alternatives modules. \\
+Performance & End-to-end analysis should complete within a few seconds under normal conditions; extraction calls run asynchronously rather than blocking the UI. \\
+Accuracy \& Reliability & Extraction confidence is surfaced to the user; low-confidence results prompt a retake or manual fallback. \\
+Data Integrity & Harmful-ingredient claims are traceable to a source in the database; the system avoids unattributed or invented health claims. \\
+Security \& Privacy & Uploaded images and user-submitted data are stored securely; no unnecessary personal data is collected. \\
+Usability & The core flow (photo $\rightarrow$ result) is usable without instructions; results are presented in plain, non-technical language. \\
+\bottomrule
+\end{longtable}
+
+% ==========================================================
+\section{System Architecture}
+The system follows a modular pipeline: \textbf{Photo Upload} $\rightarrow$ \textbf{Extraction Service} $\rightarrow$ \textbf{Classification Engine} $\rightarrow$ \textbf{Alternatives Engine} $\rightarrow$ \textbf{Results}. A separate \textbf{Category Configuration store} (categories, ingredients, aliases, harm rules, alternatives data) feeds the Classification and Alternatives modules, so category-specific behavior is data-driven rather than hard-coded.
+
+For the MVP, this is implemented as a \textbf{modular monolith} --- clearly separated internal modules (extraction, classification, alternatives, data access) rather than deployed microservices --- to keep infrastructure overhead low while preserving a clean path to splitting into independent services later.
+
+\subsection{Data requirements}
+\begin{itemize}
+  \item \textbf{Categories table:} holds category definitions (MVP: food only; schema supports more).
+  \item \textbf{Ingredients table:} approx. 150--300 curated entries for MVP, each linked to a category, with associated health-effect notes.
+  \item \textbf{Aliases table:} maps ingredient name variants (E-numbers, common/regional names) to a single canonical ingredient.
+  \item \textbf{Alternatives table:} healthier product suggestions linked to category and price band.
+  \item \textbf{Generic risk profiles:} category-level fallback data for unbranded-product classification.
+\end{itemize}
+
+\subsection{Recommended technology stack}
+\begin{longtable}{@{}p{3.6cm}p{10cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Recommendation} \\
+\midrule
+\endhead
+Ingredient extraction & Vision-capable API (multimodal model or OCR service) behind an internal abstraction layer \\
+Backend & Modular monolith (e.g., Node.js/Express or Python/FastAPI) \\
+Database & Relational database (e.g., PostgreSQL) for category/ingredient/alias data \\
+Async processing & Lightweight job queue for extraction calls (e.g., BullMQ or Celery) \\
+Frontend & Mobile-first web app or native app for photo capture and results display \\
+Image storage & Object storage for uploaded photos \\
+\bottomrule
+\end{longtable}
+
+% ==========================================================
+\section{Data Sources}
+The harmful-ingredients database will be built by combining the following sources rather than relying on a single existing dataset:
+
+\begin{itemize}
+  \item \textbf{Open Food Facts} --- a crowdsourced, openly licensed database of food products with ingredients, additives, and allergen data, downloadable as CSV/JSONL/Parquet and filterable by country.
+  \item \textbf{FSSAI regulatory publications} --- the Compendium on Food Safety and Standards (Food Additives) Regulation, used as the authoritative source for India-specific permitted-additive rules; requires parsing from PDF into structured form.
+  \item \textbf{Existing ML-ready datasets} (e.g., Kaggle ingredient/allergen datasets) --- used to bootstrap the classification schema before refinement with India-specific data.
+\end{itemize}
+
+% ==========================================================
+% \section{Project Timeline}
+% Team size: 2--3 members. Duration: one semester (approximately 4--6 months).
+
+% \begin{longtable}{@{}p{1.6cm}p{2.4cm}p{9.4cm}@{}}
+% \toprule
+% \textbf{Phase} & \textbf{Weeks} & \textbf{Focus} \\
+% \midrule
+% \endhead
+% 1 & 1--3   & Scope lock; begin building the harmful-ingredients database \\
+% 2 & 4--6   & Core extraction pipeline (OCR/vision integration and parsing) \\
+% 3 & 7--9   & Classification and scoring engine; unbranded-product fallback \\
+% 4 & 10--12 & Healthier-alternative suggestions; application UI \\
+% 5 & 13--15 & Testing across real product photos; bug fixes \\
+% 6 & 16+    & Buffer; stretch goals if time remains \\
+% \bottomrule
+% \end{longtable}
+
+% ==========================================================
+\section{Success Criteria}
+\begin{itemize}
+  \item A user can photograph a real packaged food product and receive an accurate, structured ingredient list.
+  \item Harmful ingredients present are correctly flagged with a clear, correct health-effect explanation.
+  \item Unbranded/local products with no ingredient list still return a useful, clearly-labeled generic risk profile.
+  \item At least one relevant, price-comparable healthier alternative is suggested where applicable.
+  \item Adding a second category (as a demonstration exercise) requires only data/configuration changes, not pipeline rewrites.
+\end{itemize}
+
+% ==========================================================
+\section{Conclusion}
+The Ingredient Scanner App addresses a genuine and documented gap in the Indian consumer product market: the absence of a scanning tool built around Indian labeling realities, regulatory standards, and the prevalence of unbranded local products. By scoping the MVP to a single, well-defined category while architecting the system to be data-driven and extensible, this project is achievable within a one-semester timeline for a team of 2--3, while laying a credible foundation for future expansion into additional product categories and markets.
+
+\end{document}
