@@ -20,6 +20,6 @@ willlow/
 ├── docs/
 │   └── Willow.pptx                      # Official project presentation deck
 ├── project_proposal/
-│   ├── project_proposal_Willow.pdf.docx # Final written project proposal
+│   ├── project_proposal_Willow.pdf # Final written project proposal
 │   └── Proposal.tex                     # LaTeX source file for the proposal
 └── README.md                            # Repository documentation
