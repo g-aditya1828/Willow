@@ -1,4 +1,4 @@
-# Willlow
+# Willow
 
 A structured repository containing system design diagrams, project proposal documentation, and presentation materials for the Willow project.
 
