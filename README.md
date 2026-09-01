@@ -13,7 +13,7 @@ Provide a brief introduction to the Willow project here. Describe the problem it
 ## 📁 Project Structure
 
 ```text
-willlow/
+willow/
 ├── diagrams/
 │   ├── Use_case_diagram/                # System use case diagrams and actors
 │   └── data_flow_diagram/               # Data flow diagrams (DFDs)
