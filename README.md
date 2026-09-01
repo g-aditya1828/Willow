@@ -1,3 +1,4 @@
+
 # Willow
 
 A structured repository containing system design diagrams, project proposal documentation, and presentation materials for the Willow project.
@@ -23,3 +24,4 @@ willow/
 │   ├── project_proposal_Willow.pdf # Final written project proposal
 │   └── Proposal.tex                     # LaTeX source file for the proposal
 └── README.md                            # Repository documentation
+```

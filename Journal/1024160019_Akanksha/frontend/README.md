@@ -1,5 +1,6 @@
+# Willow - Frontend(progress)
 
-# Willow — Yuka-inspired sticker website
+WEEK - 1 (WEBSITE)
 
 This version uses the information architecture and consumer-first transparency direction described in the supplied Willow specification, with a playful sticker/illustration visual language inspired by the reference style.
 
