@@ -1,4 +1,5 @@
-# Willlow
+
+# Willow
 
 A structured repository containing system design diagrams, project proposal documentation, and presentation materials for the Willow project.
 
@@ -13,7 +14,7 @@ Provide a brief introduction to the Willow project here. Describe the problem it
 ## 📁 Project Structure
 
 ```text
-willlow/
+willow/
 ├── diagrams/
 │   ├── Use_case_diagram/                # System use case diagrams and actors
 │   └── data_flow_diagram/               # Data flow diagrams (DFDs)
@@ -23,3 +24,4 @@ willlow/
 │   ├── project_proposal_Willow.pdf # Final written project proposal
 │   └── Proposal.tex                     # LaTeX source file for the proposal
 └── README.md                            # Repository documentation
+```
