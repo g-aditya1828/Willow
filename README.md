@@ -1,4 +1,3 @@
-
 # Willow
 
 A structured repository containing system design diagrams, project proposal documentation, research journals, backend/frontend source code, and presentation materials for the Willow food transparency project.
@@ -40,4 +39,3 @@ willow/
 │   └── Proposal.tex                     # LaTeX source file for the proposal
 ├── .gitattributes                       # Git configuration file
 └── README.md                            # Repository documentation
-```
