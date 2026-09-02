@@ -1,7 +1,6 @@
 # Willow
 
-A structured repository containing system design diagrams, project proposal documentation, research journals, backend/frontend source code, and presentation materials for the Willow food transparency project.
-
+Willow is an AI-powered product ingredient scanner designed specifically for the Indian market to help consumers evaluate packaged and local food products by taking a single photo. Developed for the Software Engineering course (UCS 503) at Thapar Institute of Engineering & Technology by Aditya Gupta (1024160001) and Akanksha Thakur (1024160019), the project integrates Computer Vision, NLP, and Full-Stack Development.
 ---
 
 ## 📖 Overview
