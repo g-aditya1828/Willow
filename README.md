@@ -1,17 +1,27 @@
-# willow
 
-A new Flutter project.
+# Willow
 
-## Getting Started
+A structured repository containing system design diagrams, project proposal documentation, and presentation materials for the Willow project.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 📖 Overview
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Provide a brief introduction to the Willow project here. Describe the problem it solves, key architectural goals, core capabilities, and target audience.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 📁 Project Structure
+
+```text
+willow/
+├── diagrams/
+│   ├── Use_case_diagram/                # System use case diagrams and actors
+│   └── data_flow_diagram/               # Data flow diagrams (DFDs)
+├── docs/
+│   └── Willow.pptx                      # Official project presentation deck
+├── project_proposal/
+│   ├── project_proposal_Willow.pdf # Final written project proposal
+│   └── Proposal.tex                     # LaTeX source file for the proposal
+└── README.md                            # Repository documentation
+```
