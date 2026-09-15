@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../model/food_item.dart';
+import 'scan_screen.dart';
 
 class WillowHomeScreen extends StatefulWidget {
   const WillowHomeScreen({Key? key}) : super(key: key);
@@ -440,7 +441,14 @@ class _WillowHomeScreenState extends State<WillowHomeScreen> {
             Row(
               children: [
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ScanScreen(),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.crop_free,
                       size: 16, color: AppTheme.primary),
                   label: const Text(
