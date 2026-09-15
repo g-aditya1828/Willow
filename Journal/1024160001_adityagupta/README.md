@@ -45,6 +45,7 @@ Welcome to my project journal! In this repository, I document my progress, techn
   - Integrated the **Google Gemini Vision API** into my backend pipeline to overcome Tesseract's visual limitations.
   - Prompted Gemini to return clean, structured JSON containing ingredients, additives, and potential allergens.
   - Compared performance between standard local OCR and cloud-based AI vision processing.
+  - made Gantt chart.
 - **My Results:** Extraction accuracy improved drastically—Gemini effortlessly parsed distorted, low-contrast, and multilingual ingredient panels that Tesseract failed on.
 
 ---
@@ -62,17 +63,9 @@ Welcome to my project journal! In this repository, I document my progress, techn
 
 ## 🛠️ My Tech Stack
 
-| Component                    | Technology                                      |
-| :--------------------------- | :---------------------------------------------- |
-| **OCR & AI Vision**    | Tesseract OCR, OpenCV, Google Gemini Vision API |
-| **Backend**            | Python / REST API Architecture                  |
-| **Databases Explored** | Open Food Facts, Yuka Data Models               |
-| **Tools & Planning**   | PowerPoint (Pitch Deck), Git, Markdown          |
-
----
-
-## 🚀 What I'm Building Next
-
-- [ ] Implement local caching to speed up recurring product scans.
-- [ ] Build out a detailed health-scoring algorithm for flagged ingredients.
-- [ ] Fine-tune the camera interface in the app for faster scanning.
+| Component                    | Technology                              |
+| :--------------------------- | :-------------------------------------- |
+| **OCR & AI Vision**    | Tesseract OCR, Google Gemini Vision API |
+| **Backend**            | Python / REST API Architecture          |
+| **Databases Explored** | Open Food Facts, Yuka Data Models       |
+| **Tools & Planning**   | PowerPoint (Pitch Deck), Git, Markdown  |
