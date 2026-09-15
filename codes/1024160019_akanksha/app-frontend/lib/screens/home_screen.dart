@@ -285,7 +285,7 @@ class _WillowHomeScreenState extends State<WillowHomeScreen> {
             ),
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.bgMint,
                 shape: BoxShape.circle,
               ),
@@ -944,20 +944,14 @@ class _WillowHomeScreenState extends State<WillowHomeScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(CupertinoIcons.viewfinder,
-                        color: Colors.white, size: 22),
-                    SizedBox(height: 1),
-                    Text("SCAN",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900)),
+                    Icon(CupertinoIcons.barcode_viewfinder,
+                        color: Colors.white, size: 24),
                   ],
                 ),
               ),
             ),
-            _buildNavItem(3, Icons.swap_horiz_rounded, "Swaps"),
-            _buildNavItem(4, Icons.verified_outlined, "FSSAI Guide"),
+            _buildNavItem(3, CupertinoIcons.square_stack_3d_up, "Swaps"),
+            _buildNavItem(4, CupertinoIcons.person_crop_circle, "Profile"),
           ],
         ),
       ),
@@ -973,15 +967,15 @@ class _WillowHomeScreenState extends State<WillowHomeScreen> {
         children: [
           Icon(
             icon,
-            size: 20,
+            size: 22,
             color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
               fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
             ),
           )
