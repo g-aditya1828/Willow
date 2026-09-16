@@ -1,0 +1,47 @@
+{
+  "image.png": {
+    "tesseract": {
+      "raw_text": "i Wheat flour | |\nWheat gluten, Thicenes (608 & 412), Aad ators (501i) &\n510 ()) and Humectant (451()), mn\nHesala TASTEMAKER\u00ae: Mise ics 05.6) Onin pone, Ctane\nTumercpowdt Red ll powde Garlic poudeyCunin onde,\nAseed powde, Ginger power, Fnugeek ponder Black pepper\n\npie; Cove pone, Gen catanon poe & ute pow,\nRelned wheat flu (Mai orn pale",
+      "parsed": [
+        "i Wheat flour | | Wheat gluten",
+        "Thicenes (608 & 412)",
+        "Aad ators (501i) & 510 ()) and Humectant (451())",
+        "mn Hesala TASTEMAKER\u00ae: Mise ics 05.6) Onin pone",
+        "Ctane Tumercpowdt Red ll powde Garlic poudeyCunin onde",
+        "Aseed powde",
+        "Ginger power",
+        "Fnugeek ponder Black pepper pie",
+        "Cove pone",
+        "Gen catanon poe & ute pow",
+        "Relned wheat flu (Mai orn pale"
+      ],
+      "confidence": 0.54,
+      "latency_sec": 1.28
+    },
+    "gemini": {
+      "raw_text": "Noodles: Refined wheat flour (Maida), Palm oil, Iodized salt, Wheat gluten, Thickeners (508 & 412), Acidity regulators (501(i) & 500 (i)) and Humectant (451 (i)). Masala *TASTEMAKER\u00ae: Mixed spices (25.6%) (Onion powder, Coriander powder, Turmeric powder, Red chilli powder, Garlic powder, Cumin powder, Aniseed powder, Ginger powder, Fenugreek powder, Black pepper powder, Clove powder, Green cardamom powder & Nutmeg powder), Refined wheat flour (Maida), Hydrolysed groundnut protein, Sugar, Palm oil, Starch, Iodized salt, Thickener (508), Flavour enhancer (635), Toasted onion flakes, Acidity regulator (330), Colour (150d), Mineral and Wheat gluten.",
+      "parsed": [
+        "Noodles: Refined wheat flour (Maida)",
+        "Palm oil",
+        "Iodized salt",
+        "Wheat gluten",
+        "Thickeners (508 & 412)",
+        "Acidity regulators (501(i) & 500 (i)) and Humectant (451 (i)). Masala *TASTEMAKER\u00ae: Mixed spices (25.6%) (Onion powder, Coriander powder, Turmeric powder, Red chilli powder, Garlic powder, Cumin powder, Aniseed powder, Ginger powder, Fenugreek powder, Black pepper powder, Clove powder, Green cardamom powder & Nutmeg powder)",
+        "Refined wheat flour (Maida)",
+        "Hydrolysed groundnut protein",
+        "Sugar",
+        "Palm oil",
+        "Starch",
+        "Iodized salt",
+        "Thickener (508)",
+        "Flavour enhancer (635)",
+        "Toasted onion flakes",
+        "Acidity regulator (330)",
+        "Colour (150d)",
+        "Mineral and Wheat gluten"
+      ],
+      "confidence": 0.9,
+      "latency_sec": 23.88
+    }
+  }
+}
