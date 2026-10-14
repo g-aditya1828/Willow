@@ -1,31 +1,27 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../data/ingredient_data.dart';
-import '../widgets/common.dart';
-import '../widgets/sticker_layer.dart';
+import '../services/ingredient_scanner_service.dart';
+import '../theme/app_theme.dart';
+import 'results_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
-  final File? image;
+  final File? imageFile;
   final String initialProductName;
-  final String initialIngredientText;
-  final String initialFssai;
-  final VoidCallback onBack;
-  final void Function({
-    required String productName,
-    required String ingredientText,
-    required String fssai,
-    String? manualCategory,
-  }) onAnalyze;
+  final List<String> extractedIngredients;
+  final String? fssaiNumber;
+  final int confidence;
+  final String provider;
+  final String rawOcrText;
 
   const ReviewScreen({
     super.key,
-    required this.image,
+    this.imageFile,
     required this.initialProductName,
-    required this.initialIngredientText,
-    required this.initialFssai,
-    required this.onBack,
-    required this.onAnalyze,
+    required this.extractedIngredients,
+    this.fssaiNumber,
+    required this.confidence,
+    required this.provider,
+    required this.rawOcrText,
   });
 
   @override
@@ -33,19 +29,52 @@ class ReviewScreen extends StatefulWidget {
 }
 
 class _ReviewScreenState extends State<ReviewScreen> {
+  final _scanner = IngredientScannerService();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _ingredientsCtrl;
   late final TextEditingController _fssaiCtrl;
-  final _fssaiFocus = FocusNode();
-  String? _manualCategory;
-  String? _nameError;
+
+  String _selectedCategory = "Namkeen / Fried Snacks";
+  bool _isAnalyzing = false;
+
+  final List<String> _categories = [
+    "Namkeen / Fried Snacks",
+    "Bakery / Biscuits",
+    "Sweets / Mithai",
+    "Packaged Spices / Masala",
+    "Beverages",
+    "Instant Foods / Ready-to-Eat",
+    "Dairy",
+  ];
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.initialProductName);
-    _ingredientsCtrl = TextEditingController(text: widget.initialIngredientText)..addListener(() => setState(() {}));
-    _fssaiCtrl = TextEditingController(text: widget.initialFssai);
+    _ingredientsCtrl = TextEditingController(
+      text: widget.extractedIngredients.join(", "),
+    );
+    _fssaiCtrl = TextEditingController(text: widget.fssaiNumber ?? "");
+
+    // Guess category from title or text
+    _autoDetectCategory();
+  }
+
+  void _autoDetectCategory() {
+    final combined = "${widget.initialProductName} ${widget.rawOcrText}".toLowerCase();
+    if (combined.contains("biscuit") || combined.contains("cookie") || combined.contains("rusk")) {
+      _selectedCategory = "Bakery / Biscuits";
+    } else if (combined.contains("sweet") || combined.contains("mithai") || combined.contains("ladoo")) {
+      _selectedCategory = "Sweets / Mithai";
+    } else if (combined.contains("masala") || combined.contains("spice") || combined.contains("turmeric")) {
+      _selectedCategory = "Packaged Spices / Masala";
+    } else if (combined.contains("drink") || combined.contains("juice") || combined.contains("cola")) {
+      _selectedCategory = "Beverages";
+    } else if (combined.contains("noodle") || combined.contains("maggi") || combined.contains("instant")) {
+      _selectedCategory = "Instant Foods / Ready-to-Eat";
+    } else if (combined.contains("milk") || combined.contains("curd") || combined.contains("paneer")) {
+      _selectedCategory = "Dairy";
+    }
   }
 
   @override
@@ -53,223 +82,248 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _nameCtrl.dispose();
     _ingredientsCtrl.dispose();
     _fssaiCtrl.dispose();
-    _fssaiFocus.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    FocusScope.of(context).unfocus();
-    final name = _nameCtrl.text.trim();
-    final ingredients = _ingredientsCtrl.text.trim();
+  Future<void> _runAnalysis() async {
+    final ingText = _ingredientsCtrl.text.trim();
+    final ingredientsList = ingText.isNotEmpty
+        ? ingText.split(RegExp(r'[,•\n]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+        : <String>[];
 
-    if (name.isEmpty && ingredients.isEmpty) {
-      setState(() => _nameError = 'Add a product name or ingredient list to continue');
-      HapticFeedback.vibrate();
-      return;
-    }
-    setState(() => _nameError = null);
-    widget.onAnalyze(
-      productName: name.isEmpty ? 'Unnamed product' : name,
-      ingredientText: ingredients,
-      fssai: _fssaiCtrl.text.trim(),
-      manualCategory: _manualCategory,
+    setState(() {
+      _isAnalyzing = true;
+    });
+
+    final result = await _scanner.analyze(
+      productName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : "Scanned Food",
+      ingredients: ingredientsList,
+      fssaiNumber: _fssaiCtrl.text.trim().isNotEmpty ? _fssaiCtrl.text.trim() : null,
+      category: _selectedCategory,
     );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isAnalyzing = false;
+    });
+
+    if (result != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ResultsScreen(
+            analysis: result,
+            imageFile: widget.imageFile,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Analysis failed. Please check network connection."),
+          backgroundColor: AppTheme.highRiskRed,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final noIngredients = _ingredientsCtrl.text.trim().isEmpty;
+    final isUnbranded = widget.extractedIngredients.isEmpty;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Stack(
-        children: [
-          const FoodStickerLayer(stickers: [
-            StickerSpec(emoji: '🥭', alignment: Alignment(0.92, -0.9), rotationDeg: 10, phase: 0.2, size: 26),
-            StickerSpec(emoji: '🌾', alignment: Alignment(-0.9, 0.9), rotationDeg: -10, phase: 0.6, size: 26),
-          ]),
-          SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Review what we found', style: willowDisplay(size: 22)),
-                const SizedBox(height: 6),
-                Text(
-                  "This is Willow's OCR review step — confirm or edit the extracted text before "
-                  "analysis, or type ingredients here if there's no printed list.",
-                  style: willowBody(size: 12.5, color: WillowColors.muted),
-                ),
-                const SizedBox(height: 16),
-                if (widget.image != null)
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.file(widget.image!, height: 170, width: double.infinity, fit: BoxFit.cover),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), borderRadius: BorderRadius.circular(20)),
-                          child: Text('Photo attached', style: willowBody(size: 9.5, color: Colors.white, weight: FontWeight.w600)),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Container(
-                    height: 88,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: WillowColors.line, width: 1.5),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.image_outlined, color: WillowColors.muted, size: 24),
-                        const SizedBox(height: 4),
-                        Text('No photo attached', style: willowBody(size: 11, color: WillowColors.muted)),
-                      ],
-                    ),
+    return Scaffold(
+      backgroundColor: AppTheme.bgOffWhite,
+      appBar: AppBar(
+        title: const Text("Review & Verify"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top banner with Confidence & Provider info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isUnbranded ? AppTheme.alertOrangeBg : AppTheme.cleanGreenBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isUnbranded
+                        ? AppTheme.watchOrange.withValues(alpha: 0.3)
+                        : AppTheme.cleanGreen.withValues(alpha: 0.3),
                   ),
-                const SizedBox(height: 18),
-                SectionLabel('PRODUCT NAME'),
-                _field(_nameCtrl, hint: 'e.g. Masala Oats', errorText: _nameError, onChanged: (_) {
-                  if (_nameError != null) setState(() => _nameError = null);
-                }),
-                const SizedBox(height: 14),
-                SectionLabel('INGREDIENT LIST', hint: 'comma-separated, blank if no printed list'),
-                _field(_ingredientsCtrl, hint: 'e.g. Refined Flour, Sugar, Palm Oil, Salt, MSG', maxLines: 4),
-                const SizedBox(height: 14),
-                SectionLabel('FSSAI NUMBER', hint: 'optional'),
-                _field(_fssaiCtrl, hint: '14-digit number, if visible on the pack', focusNode: _fssaiFocus, keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: noIngredients
-                      ? Container(
-                          key: const ValueKey('fallback'),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: WillowColors.watchBg,
-                            border: Border.all(color: const Color(0xFFEBCB8E)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                const Icon(Icons.info_outline, size: 14, color: WillowColors.watchFg),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text('No ingredient list? Pick the closest category (optional).',
-                                      style: willowBody(size: 11.5, weight: FontWeight.w600, color: WillowColors.watchFg)),
-                                ),
-                              ]),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<String>(
-                                value: _manualCategory,
-                                isExpanded: true,
-                                hint: Text('Let Willow guess from the product name', style: willowBody(size: 12)),
-                                items: categoryProfiles.keys
-                                    .map((c) => DropdownMenuItem(value: c, child: Text(c, style: willowBody(size: 12))))
-                                    .toList(),
-                                onChanged: (v) => setState(() => _manualCategory = v),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(key: ValueKey('empty')),
                 ),
-                const SizedBox(height: 22),
-                Row(
+                child: Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          FocusScope.of(context).unfocus();
-                          widget.onBack();
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          side: const BorderSide(color: WillowColors.line),
-                        ),
-                        child: Text('Back', style: willowBody(size: 13, weight: FontWeight.w600)),
-                      ),
+                    Icon(
+                      isUnbranded ? Icons.info_outline : Icons.check_circle_outline,
+                      color: isUnbranded ? AppTheme.watchOrange : AppTheme.cleanGreen,
+                      size: 20,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: WillowColors.ink,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          elevation: 0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Analyze', style: willowBody(size: 13, weight: FontWeight.w700, color: Colors.white)),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.arrow_forward, size: 15, color: Colors.white),
-                          ],
+                      child: Text(
+                        isUnbranded
+                            ? "No label detected. Using category-level risk fallback."
+                            : "OCR extracted ${widget.extractedIngredients.length} ingredients (${widget.confidence}% confidence)",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isUnbranded ? AppTheme.watchOrange : AppTheme.cleanGreen,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+              ),
 
-  Widget _field(
-    TextEditingController c, {
-    required String hint,
-    int maxLines = 1,
-    void Function(String)? onChanged,
-    String? errorText,
-    FocusNode? focusNode,
-    TextInputType? keyboardType,
-  }) {
-    return TextField(
-      controller: c,
-      maxLines: maxLines,
-      onChanged: onChanged,
-      focusNode: focusNode,
-      keyboardType: keyboardType,
-      style: willowBody(size: 13),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: willowBody(size: 12.5, color: WillowColors.muted),
-        errorText: errorText,
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: WillowColors.line)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: errorText != null ? WillowColors.red : WillowColors.line)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: WillowColors.green, width: 1.6)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: WillowColors.red)),
+              const SizedBox(height: 20),
+
+              // Product Name
+              const Text(
+                "Product Name",
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  hintText: "e.g. Haldiram's Bhujia or Loose Jalebi",
+                  prefixIcon: Icon(Icons.shopping_bag_outlined, color: AppTheme.textMuted),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Category Selector Dropdown
+              const Text(
+                "Food Category",
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.cardBorder),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedCategory,
+                    isExpanded: true,
+                    icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryOrange),
+                    items: _categories.map((c) {
+                      return DropdownMenuItem(
+                        value: c,
+                        child: Text(c, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedCategory = val);
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // FSSAI License Number (14 digits)
+              const Row(
+                children: [
+                  Text(
+                    "FSSAI License Number",
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    "(Optional)",
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _fssaiCtrl,
+                keyboardType: TextInputType.number,
+                maxLength: 14,
+                decoration: InputDecoration(
+                  counterText: "",
+                  hintText: "14-digit FSSAI number (e.g. 10012345006789)",
+                  prefixIcon: const Icon(Icons.verified_user_outlined, color: AppTheme.textMuted),
+                  suffixIcon: _fssaiCtrl.text.length == 14
+                      ? const Icon(Icons.check_circle, color: AppTheme.cleanGreen)
+                      : null,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Ingredients Edit Box
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Ingredients List",
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                  ),
+                  Text(
+                    "Comma-separated",
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted.withValues(alpha: 0.9)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _ingredientsCtrl,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: "Enter or edit ingredients (e.g. Refined Wheat Flour, Palm Oil, TBHQ, Salt)",
+                  alignLabelWithHint: true,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Submit / Analyze CTA Button
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _isAnalyzing ? null : _runAnalysis,
+                  icon: _isAnalyzing
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.health_and_safety_outlined, color: Colors.white),
+                  label: _isAnalyzing
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            ),
+                            SizedBox(width: 12),
+                            Text("Analyzing FSSAI Harm Rules...", style: TextStyle(color: Colors.white)),
+                          ],
+                        )
+                      : const Text(
+                          "Run Food Safety Analysis",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryOrange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

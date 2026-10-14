@@ -45,7 +45,7 @@ class SectionLabel extends StatelessWidget {
         text: TextSpan(children: [
           TextSpan(text: text, style: willowBody(size: 11, weight: FontWeight.w700, color: WillowColors.muted)),
           if (hint != null)
-            TextSpan(text: '  ·  $hint', style: willowBody(size: 11, weight: FontWeight.w400, color: WillowColors.muted.withOpacity(0.7))),
+            TextSpan(text: '  ·  $hint', style: willowBody(size: 11, weight: FontWeight.w400, color: WillowColors.muted.withValues(alpha: 0.7))),
         ]),
       ),
     );

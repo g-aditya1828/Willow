@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_navigation_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'services/auth_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -11,6 +13,7 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  await AuthService().initialize();
   runApp(const WillowApp());
 }
 
@@ -20,10 +23,18 @@ class WillowApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Willow - Food Safety & Scanner',
+      title: 'Willow - Food Safety Scanner',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const WillowHomeScreen(),
+      home: ListenableBuilder(
+        listenable: AuthService(),
+        builder: (context, _) {
+          if (AuthService().isAuthenticated) {
+            return const MainNavigationScreen();
+          }
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
