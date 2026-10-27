@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../model/scan_model.dart';
 import '../services/auth_service.dart';
 import '../services/ingredient_scanner_service.dart';
 import '../theme/app_theme.dart';
-import 'auth/login_screen.dart';
+import 'results_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -15,21 +16,29 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final _scanner = IngredientScannerService();
   final _auth = AuthService();
+  final _searchCtrl = TextEditingController();
 
-  List<ScanHistoryItem> _history = [];
-  bool _isLoading = false;
-  bool _showOnlyFavorites = false;
+  List<ScanHistoryItem> _allHistory = [];
+  bool _isLoading = true;
+  int _activeFilterIndex = 0; // 0: All, 1: 75+ score, 2: Saved
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
     _auth.addListener(_onAuthChanged);
+    _searchCtrl.addListener(() {
+      setState(() {
+        _searchQuery = _searchCtrl.text.trim().toLowerCase();
+      });
+    });
   }
 
   @override
   void dispose() {
     _auth.removeListener(_onAuthChanged);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -38,360 +47,606 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadHistory() async {
-    if (!_auth.isAuthenticated) {
-      setState(() {
-        _history = [];
-        _isLoading = false;
-      });
-      return;
-    }
-
     setState(() => _isLoading = true);
-    final items = await _scanner.getScanHistory();
-    if (!mounted) return;
-    setState(() {
-      _history = items;
-      _isLoading = false;
-    });
+    try {
+      final items = await _scanner.getScanHistory();
+      if (mounted) {
+        setState(() {
+          _allHistory = items;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  Future<void> _toggleBookmark(ScanHistoryItem item) async {
-    final res = await _scanner.toggleFavorite(item.id);
-    if (res != null && mounted) _loadHistory();
+  List<ScanHistoryItem> get _filteredHistory {
+    return _allHistory.where((item) {
+      if (_searchQuery.isNotEmpty) {
+        final matchName = item.productName.toLowerCase().contains(_searchQuery);
+        final matchCat = item.category.toLowerCase().contains(_searchQuery);
+        if (!matchName && !matchCat) return false;
+      }
+      if (_activeFilterIndex == 1) {
+        return item.riskScore >= 75;
+      }
+      if (_activeFilterIndex == 2) {
+        return item.isFavorite;
+      }
+      return true;
+    }).toList();
   }
 
-  Color _scoreColor(int score) {
-    return AppTheme.scoreColor(score);
+  // Calculated Real Statistics from Backend Scans
+  int get _totalScans => _allHistory.length;
+  int get _avgScore {
+    if (_allHistory.isEmpty) return 0;
+    final sum = _allHistory.fold<int>(0, (prev, e) => prev + e.riskScore);
+    return (sum / _allHistory.length).round();
+  }
+  int get _highScoresCount => _allHistory.where((e) => e.riskScore >= 75).length;
+
+  void _openScannedItem(ScanHistoryItem item) {
+    final analysis = ProductAnalysis(
+      scanId: item.id,
+      productName: item.productName,
+      category: item.category,
+      riskScore: item.riskScore,
+      scoreLabel: AppTheme.scoreLabel(item.riskScore),
+      confidence: item.confidence,
+      isFallback: item.isFallback,
+      fallbackNote: item.fallbackNote,
+      fssaiNumber: item.fssaiNumber,
+      isFavorite: item.isFavorite,
+      flagged: item.flagged,
+      clean: item.clean,
+      unknown: item.unknown,
+      alternatives: [],
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ResultsScreen(analysis: analysis),
+      ),
+    ).then((_) => _loadHistory());
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _showOnlyFavorites
-        ? _history.where((h) => h.isFavorite).toList()
-        : _history;
+    final filtered = _filteredHistory;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgOffWhite,
-      appBar: AppBar(
-        backgroundColor: AppTheme.bgOffWhite,
-        title: const Text("Scan History"),
-        actions: [
-          if (_auth.isAuthenticated)
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: _loadHistory,
+      backgroundColor: AppTheme.bgLight,
+      body: Stack(
+        children: [
+          // ── Top Gradient Ambient Banner (Figma #2:2148) ──────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 300,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: AppTheme.historyTopGradient,
+              ),
             ),
-        ],
-      ),
-      body: SafeArea(
-        child: !_auth.isAuthenticated
-            ? _buildGuestView()
-            : _isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primaryPink,
+          ),
+
+          SafeArea(
+            child: RefreshIndicator(
+              color: AppTheme.primaryPurple,
+              onRefresh: _loadHistory,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Brand Header (Figma #12:96) ─────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.eco_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'willow',
+                                style: GoogleFonts.inter(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textHeading,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: AppTheme.textHeading,
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )
-                : Column(
-                    children: [
-                      // ── Filter Bar ──────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                        child: Row(
-                          children: [
-                            _FilterPill(
-                              label: "All (${_history.length})",
-                              selected: !_showOnlyFavorites,
-                              onTap: () => setState(() => _showOnlyFavorites = false),
+
+                    // ── Page Heading (Figma #12:103) ────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Scan history',
+                            style: GoogleFonts.inter(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textHeading,
                             ),
-                            const SizedBox(width: 10),
-                            _FilterPill(
-                              label:
-                                  "⭐ Favorites (${_history.where((h) => h.isFavorite).length})",
-                              selected: _showOnlyFavorites,
-                              onTap: () => setState(() => _showOnlyFavorites = true),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'A little knowledge, saved for later.',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: AppTheme.textHeading,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Stats Row (Figma #12:104) ───────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              number: '$_totalScans',
+                              label: 'Total scans',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildStatCard(
+                              number: _allHistory.isNotEmpty ? '$_avgScore' : '—',
+                              label: 'Avg. score',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildStatCard(
+                              number: '$_highScoresCount',
+                              label: 'High scores',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Main Content Container (Figma #2:2155) ───────────────
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(28),
+                          topRight: Radius.circular(28),
                         ),
                       ),
-
-                      // ── List ─────────────────────────────────────────
-                      Expanded(
-                        child: filtered.isEmpty
-                            ? _buildEmptyState()
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                                itemCount: filtered.length,
-                                itemBuilder: (context, idx) {
-                                  final item = filtered[idx];
-                                  final col = _scoreColor(item.riskScore);
-
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border:
-                                          Border.all(color: AppTheme.cardBorder),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color:
-                                              Colors.black.withValues(alpha: 0.03),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Search Input (Figma #2:2160)
+                          Container(
+                            height: 46,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppTheme.borderLight),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryPurple.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.search_rounded,
+                                  color: AppTheme.textMuted,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchCtrl,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
                                     ),
-                                    child: Row(
-                                      children: [
-                                        // Score Circle
-                                        Container(
-                                          width: 52,
-                                          height: 52,
-                                          decoration: BoxDecoration(
-                                            color: col.withValues(alpha: 0.1),
-                                            shape: BoxShape.circle,
-                                            border:
-                                                Border.all(color: col, width: 2.5),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              "${item.riskScore}",
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w800,
-                                                color: col,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 14),
-
-                                        // Info
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.productName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: AppTheme.textPrimary,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              Text(
-                                                item.category,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppTheme.textSecondary,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Row(
-                                                children: [
-                                                  if (item.flaggedCount > 0)
-                                                    Container(
-                                                      margin: const EdgeInsets.only(right: 8),
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                              horizontal: 8,
-                                                              vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color:
-                                                            AppTheme.alertOrangeBg,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                                8),
-                                                      ),
-                                                      child: Text(
-                                                        "⚠️ ${item.flaggedCount} flagged",
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color:
-                                                              AppTheme.watchOrange,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  if (item.fssaiNumber != null)
-                                                    const Text(
-                                                      "✓ FSSAI",
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: AppTheme.cleanGreen,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        // Bookmark
-                                        IconButton(
-                                          icon: Icon(
-                                            item.isFavorite
-                                                ? Icons.star_rounded
-                                                : Icons.star_border_rounded,
-                                            color: item.isFavorite
-                                                ? AppTheme.watchOrange
-                                                : AppTheme.textMuted,
-                                          ),
-                                          onPressed: () =>
-                                              _toggleBookmark(item),
-                                        ),
-                                      ],
+                                    decoration: InputDecoration(
+                                      hintText: 'Search products or brands',
+                                      hintStyle: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: AppTheme.textMuted,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      filled: false,
+                                      contentPadding: EdgeInsets.zero,
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
+                                if (_searchQuery.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () => _searchCtrl.clear(),
+                                    child: const Icon(
+                                      Icons.close_rounded,
+                                      size: 16,
+                                      color: AppTheme.textMuted,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Filter Pills (Figma #2:2163)
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Row(
+                              children: [
+                                _buildFilterPill(
+                                  index: 0,
+                                  title: 'All scans · ${_allHistory.length}',
+                                ),
+                                const SizedBox(width: 8),
+                                _buildFilterPill(
+                                  index: 1,
+                                  title: '75+ score',
+                                ),
+                                const SizedBox(width: 8),
+                                _buildFilterPill(
+                                  index: 2,
+                                  title: 'Saved',
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // History List
+                          if (_isLoading)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppTheme.primaryPurple,
+                                ),
                               ),
+                            )
+                          else if (filtered.isEmpty)
+                            // Empty state — no dummy fallback items!
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryPurpleSoft,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    alignment: Alignment.center,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.history_rounded,
+                                      color: AppTheme.primaryPurple,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _searchQuery.isNotEmpty
+                                        ? 'No matching scans found'
+                                        : 'No scan history yet',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _searchQuery.isNotEmpty
+                                        ? 'Try searching with a different product or brand name.'
+                                        : 'Scan any food packaging to build your history log here.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Saved Scans',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${filtered.length} products',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.primaryPurple,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                ...filtered.map((item) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _buildHistoryCard(item),
+                                  );
+                                }),
+                              ],
+                            ),
+
+                          const SizedBox(height: 16),
+
+                          // Sample Data Notice (Figma #2:2214)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.info_outline_rounded,
+                                color: AppTheme.textMuted,
+                                size: 13,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Illustrative products & scores. Not medical advice.',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  color: AppTheme.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ),
-                    ],
-                  ),
-      ),
-    );
-  }
-
-  Widget _buildGuestView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryPinkBg,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.history_rounded,
-                size: 40,
-                color: AppTheme.primaryPink,
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              "Sync Your Scans",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryPink,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Sign in to securely store your product scan history and favorite health swaps.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        LoginScreen(onLoginSuccess: _loadHistory),
-                  ),
-                );
-              },
-              child: const Text("Sign In or Register"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.inventory_2_outlined,
-              size: 56,
-              color: AppTheme.textMuted,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _showOnlyFavorites ? "No saved favorites yet" : "No scans found",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "Scan any packaged food product from the scanner tab to see it here.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterPill extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryPink : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppTheme.primaryPink : AppTheme.cardBorder,
           ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryPink.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({required String number, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            number,
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textHeading,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textHeading,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill({required int index, required String title}) {
+    final isActive = _activeFilterIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _activeFilterIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: isActive ? AppTheme.filterActiveGradient : null,
+          color: isActive ? null : Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          border: isActive ? null : Border.all(color: AppTheme.borderLight),
         ),
         child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppTheme.textSecondary,
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+            color: isActive ? Colors.white : AppTheme.textSecondary,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard(ScanHistoryItem item) {
+    final score = item.riskScore;
+    final isGood = score >= 75;
+    final isMid = score >= 60 && score < 75;
+
+    final mediaBg = isGood
+        ? const Color(0xFFD4FAF0)
+        : (isMid ? const Color(0xFFFFF3D4) : const Color(0xFFFFE8E8));
+
+    return GestureDetector(
+      onTap: () => _openScannedItem(item),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(color: AppTheme.borderLight, width: 1),
+        ),
+        child: Row(
+          children: [
+            // Media thumbnail
+            Container(
+              width: 62,
+              height: 74,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: mediaBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.inventory_2_outlined,
+                color: isGood
+                    ? AppTheme.tealAccent
+                    : (isMid ? AppTheme.amberWarning : AppTheme.redDanger),
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Product information
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.productName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${item.category} · ${item.timeAgo}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Score pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.scoreGradient(score),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text(
+                      '$score/100',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Chevron container
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: mediaBg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -35,9 +35,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgOffWhite,
+      backgroundColor: AppTheme.bgLight,
       appBar: AppBar(
-        title: const Text("My Profile & Security"),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text(
+          "Profile & Security",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -54,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   border: Border.all(color: AppTheme.cardBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryPink.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -69,17 +83,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 width: 64,
                                 height: 64,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryPinkBg,
+                                  color: AppTheme.primaryPurpleLight,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.primaryPink.withValues(alpha: 0.4), width: 2),
+                                  border: Border.all(
+                                    color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                    width: 2,
+                                  ),
                                 ),
                                 child: Center(
                                   child: Text(
-                                    user.username.isNotEmpty ? user.username[0].toUpperCase() : "U",
+                                    user.username.isNotEmpty
+                                        ? user.username[0].toUpperCase()
+                                        : "U",
                                     style: const TextStyle(
                                       fontSize: 26,
                                       fontWeight: FontWeight.w800,
-                                      color: AppTheme.primaryPink,
+                                      color: AppTheme.primaryPurple,
                                     ),
                                   ),
                                 ),
@@ -93,7 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       user.username,
                                       style: const TextStyle(
                                         fontSize: 18,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w800,
                                         color: AppTheme.textPrimary,
                                       ),
                                     ),
@@ -107,7 +126,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: AppTheme.cleanGreenBg,
                                         borderRadius: BorderRadius.circular(10),
@@ -133,7 +155,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _buildStatItem("Products Scanned", "${user.scanCount}"),
-                              Container(width: 1, height: 36, color: AppTheme.dividerColor),
+                              Container(
+                                width: 1,
+                                height: 36,
+                                color: AppTheme.dividerColor,
+                              ),
                               _buildStatItem("Saved Favorites", "${user.favoriteCount}"),
                             ],
                           ),
@@ -144,8 +170,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             width: 64,
                             height: 64,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryPinkBg,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primaryPurpleLight,
                               shape: BoxShape.circle,
                             ),
                             child: const Center(
@@ -155,13 +181,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 14),
                           const Text(
                             "Guest Mode Active",
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.primaryPink),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.primaryPurple,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           const Text(
                             "Sign in to synchronize your scans across mobile devices and bookmark healthy swaps.",
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                           const SizedBox(height: 18),
                           Row(
@@ -170,7 +203,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: ElevatedButton(
                                   onPressed: () {
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                      MaterialPageRoute(
+                                        builder: (context) => const LoginScreen(),
+                                      ),
                                     );
                                   },
                                   child: const Text("Sign In"),
@@ -181,7 +216,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: OutlinedButton(
                                   onPressed: () {
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                                      MaterialPageRoute(
+                                        builder: (context) => const RegisterScreen(),
+                                      ),
                                     );
                                   },
                                   child: const Text("Register"),
@@ -198,7 +235,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Security & Health Standards Banner
               const Text(
                 "Trust, Safety & Security",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(height: 12),
               Container(
@@ -213,25 +254,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildSecurityRow(
                       icon: Icons.shield_outlined,
                       title: "FSSAI Regulation Aligned",
-                      subtitle: "Ingredient harm rules are matched directly against Indian Food Safety Standards Compendium, not generic US/EU databases.",
+                      subtitle:
+                          "Ingredient harm rules are matched directly against Indian Food Safety Standards Compendium, not generic US/EU databases.",
                     ),
                     const Divider(color: AppTheme.dividerColor, height: 24),
                     _buildSecurityRow(
                       icon: Icons.public_outlined,
                       title: "Open Food Facts Validated",
-                      subtitle: "Products are cross-referenced with Open Food Facts global database for NutriScore grades and NOVA processing levels.",
+                      subtitle:
+                          "Products are cross-referenced with Open Food Facts global database for NutriScore grades and NOVA processing levels.",
                     ),
                     const Divider(color: AppTheme.dividerColor, height: 24),
                     _buildSecurityRow(
                       icon: Icons.lock_outline_rounded,
                       title: "Salted PBKDF2 Password Security",
-                      subtitle: "All passwords and session tokens are cryptographically secured with salted hashing and HS256 JWT signatures.",
+                      subtitle:
+                          "All passwords and session tokens are cryptographically secured with salted hashing and HS256 JWT signatures.",
                     ),
                     const Divider(color: AppTheme.dividerColor, height: 24),
                     _buildSecurityRow(
                       icon: Icons.visibility_off_outlined,
                       title: "Zero Data Selling",
-                      subtitle: "Your food preferences and scan history remain private and are never monetized.",
+                      subtitle:
+                          "Your food preferences and scan history remain private and are never monetized.",
                     ),
                   ],
                 ),
@@ -252,13 +297,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SnackBar(content: Text("Signed out successfully")),
                       );
                     },
-                    icon: const Icon(Icons.logout_rounded, color: AppTheme.highRiskRed, size: 20),
+                    icon: const Icon(
+                      Icons.logout_rounded,
+                      color: AppTheme.scoreRedColor,
+                      size: 20,
+                    ),
                     label: const Text(
                       "Sign Out",
-                      style: TextStyle(color: AppTheme.highRiskRed, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppTheme.scoreRedColor,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.alertRedBg, width: 1.5),
+                      side: const BorderSide(
+                        color: AppTheme.scoreRedBg,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -268,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // App Version
               const Center(
                 child: Text(
-                  "Willow Food Safety Scanner · v1.0.0 (UCS503P Capstone)",
+                  "Willow Food Safety Scanner · v2.0.0",
                   style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                 ),
               ),
@@ -288,7 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: AppTheme.primaryPink,
+            color: AppTheme.primaryPurple,
           ),
         ),
         const SizedBox(height: 2),
@@ -311,10 +366,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppTheme.primaryPinkBg,
+            color: AppTheme.primaryPurpleLight,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: AppTheme.primaryPink, size: 20),
+          child: Icon(icon, color: AppTheme.primaryPurple, size: 20),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -323,12 +378,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  height: 1.35,
+                ),
               ),
             ],
           ),

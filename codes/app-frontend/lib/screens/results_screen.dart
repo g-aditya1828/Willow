@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../model/scan_model.dart';
 import '../services/ingredient_scanner_service.dart';
 import '../theme/app_theme.dart';
+import 'alternatives_screen.dart';
 
 class ResultsScreen extends StatefulWidget {
   final ProductAnalysis analysis;
@@ -20,60 +20,24 @@ class ResultsScreen extends StatefulWidget {
   State<ResultsScreen> createState() => _ResultsScreenState();
 }
 
-class _ResultsScreenState extends State<ResultsScreen>
-    with SingleTickerProviderStateMixin {
+class _ResultsScreenState extends State<ResultsScreen> {
   final _scanner = IngredientScannerService();
   late bool _isFavorite;
-  late AnimationController _animCtrl;
-  late Animation<double> _gaugeAnim;
 
   @override
   void initState() {
     super.initState();
     _isFavorite = widget.analysis.isFavorite;
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _gaugeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
-    _animCtrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _animCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _shareProduct() async {
-    final a = widget.analysis;
-    final lines = <String>[
-      '🌿 Willow Food Safety Report',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      'Product : ${a.productName}',
-      'Category: ${a.category}',
-      'Score   : ${a.displayScore}/100  (${AppTheme.scoreLabel(a.displayScore)})',
-      if (a.fssaiNumber != null) 'FSSAI   : ${a.fssaiNumber}',
-      '',
-      if (a.flagged.isNotEmpty) '⚠️ Flagged (${a.flagged.length}): ${a.flagged.map((f) => f.canonical).join(', ')}',
-      if (a.clean.isNotEmpty) '✅ Clean  (${a.clean.length}): ${a.clean.take(5).map((c) => c.canonical).join(', ')}${a.clean.length > 5 ? '…' : ''}',
-      '',
-      'Scanned with Willow · willow.app',
-    ];
-    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📋 Report copied to clipboard'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   Future<void> _toggleFavorite() async {
     if (widget.analysis.scanId == null) {
+      setState(() => _isFavorite = !_isFavorite);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sign in to save this scan to favorites!")),
+        SnackBar(
+          content: Text(_isFavorite ? 'Saved to Bookmarks ⭐' : 'Removed from Bookmarks'),
+          duration: const Duration(seconds: 1),
+        ),
       );
       return;
     }
@@ -82,950 +46,851 @@ class _ResultsScreenState extends State<ResultsScreen>
       setState(() => _isFavorite = res);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isFavorite ? "Saved to Favorites ⭐" : "Removed from Favorites"),
+          content: Text(_isFavorite ? 'Saved to Bookmarks ⭐' : 'Removed from Bookmarks'),
           duration: const Duration(seconds: 1),
         ),
       );
     }
   }
 
+  void _showScoreMethodology() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'How this score is built',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildBreakdownRow(
+                'FSSAI Ingredient Safety',
+                '60% weight',
+                '${widget.analysis.riskScore}/100',
+              ),
+              const SizedBox(height: 12),
+              _buildBreakdownRow(
+                'Nutri-Score Grade',
+                '30% weight',
+                widget.analysis.offData?.nutriscoreGrade?.toUpperCase() ?? 'N/A',
+              ),
+              const SizedBox(height: 12),
+              _buildBreakdownRow(
+                'NOVA Processing Group',
+                '10% weight',
+                widget.analysis.offData?.novaGroup != null
+                    ? 'Group ${widget.analysis.offData!.novaGroup}'
+                    : 'N/A',
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Willow evaluates raw additives, banned emulsifiers, sugars, and nutritional density deterministically using official FSSAI standards.',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBreakdownRow(String title, String weight, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            Text(
+              weight,
+              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
+            ),
+          ],
+        ),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.primaryPurple,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = widget.analysis;
-    final off = a.offData;
     final score = a.displayScore;
-    final scoreColor = AppTheme.scoreColor(score);
-    final scoreText = AppTheme.scoreLabel(score);
+    final totalIngredients = a.flagged.length + a.clean.length + a.unknown.length;
+
+    // Nutrients from Open Food Facts if available
+    final nutrients = a.offData?.nutrients;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgWhite,
-      body: Stack(
-        children: [
-          // ── Background blobs ─────────────────────────────────────
-          Positioned(
-            top: -40,
-            right: -40,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryPink.withValues(alpha: 0.06),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                // ── App Bar ────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppTheme.pillSurface,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 16,
-                              color: AppTheme.textPrimary,
-                            ),
+      backgroundColor: const Color(0xFFF2F4FF),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Top Header (Figma #2:1993) ───────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.share_rounded, color: AppTheme.textSecondary, size: 22),
-                          tooltip: 'Copy report',
-                          onPressed: _shareProduct,
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppTheme.textPrimary,
+                        size: 20,
+                      ),
                     ),
                   ),
-                ),
-
-                // ── Hero Food Image ────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Stack(
-                      alignment: Alignment.topCenter,
-                      children: [
-                        // Soft green blob behind image
-                        Container(
-                          width: double.infinity,
-                          height: 220,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            color: scoreColor.withValues(alpha: 0.07),
+                  Text(
+                    'Product rating',
+                    style: GoogleFonts.inter(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _toggleFavorite,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        // Food image
-                        SizedBox(
-                          height: 200,
-                          child: widget.imageFile != null
-                              ? Image.file(widget.imageFile!, fit: BoxFit.contain)
-                              : off?.offImageUrl != null
-                                  ? Image.network(
-                                      off!.offImageUrl!,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) =>
-                                          const Center(child: Text("🍽️", style: TextStyle(fontSize: 80))),
-                                    )
-                                  : const Center(child: Text("🍽️", style: TextStyle(fontSize: 90))),
-                        ),
-                        // Floating green "Excellent Choice" badge
-                        Positioned(
-                          bottom: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: scoreColor,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: scoreColor.withValues(alpha: 0.35),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                        ],
+                      ),
+                      child: Icon(
+                        _isFavorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        color: _isFavorite ? AppTheme.primaryPurple : AppTheme.textPrimary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Product Hero Banner (Figma #2:1999) ──────────────────
+                    Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.productHeroGradient,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          // Badge top-left
+                          Positioned(
+                            left: 14,
+                            top: 14,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(100),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                a.isFallback ? 'CATEGORY ESTIMATE' : 'VERIFIED SCAN',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                  color: const Color(0xFF7B5CF0),
                                 ),
-                              ],
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ),
+
+                          // Center Image or Product Icon
+                          Center(
+                            child: widget.imageFile != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.file(
+                                      widget.imageFile!,
+                                      width: 150,
+                                      height: 150,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.inventory_2_rounded,
+                                    color: Color(0xFF7B5CF0),
+                                    size: 80,
+                                  ),
+                          ),
+
+                          // Bottom Title & Category
+                          Positioned(
+                            left: 18,
+                            right: 18,
+                            bottom: 14,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
-                                const SizedBox(width: 6),
                                 Text(
-                                  scoreText,
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
+                                  a.category.toUpperCase(),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF7B5CF0),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  a.productName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: AppTheme.textPrimary,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ── Product Name + Favorite ────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            a.productName.isNotEmpty ? a.productName : "Scanned Product",
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textPrimary,
-                              letterSpacing: -0.6,
-                              height: 1.15,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _toggleFavorite,
-                          icon: Icon(
-                            _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: _isFavorite ? AppTheme.watchOrange : AppTheme.textMuted,
-                            size: 28,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _shareProduct,
-                          icon: const Icon(Icons.share_rounded, color: AppTheme.textMuted, size: 22),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ── Animated Score Gauge ───────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: AnimatedBuilder(
-                        animation: _gaugeAnim,
-                        builder: (context, child) {
-                          return _ScoreGauge(
-                            score: score,
-                            progress: _gaugeAnim.value,
-                            color: scoreColor,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Nutrition Stats Row ────────────────────────────
-                if (off?.nutrients != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.cardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _NutrientStat(
-                              icon: "🔥",
-                              value: off!.nutrients!.energyKcal != null
-                                  ? "${off.nutrients!.energyKcal!.toInt()} kcal"
-                                  : "—",
-                              label: "Calories",
-                            ),
-                            _VertDivider(),
-                            _NutrientStat(
-                              icon: "🍬",
-                              value: off.nutrients!.sugarsG != null
-                                  ? "${off.nutrients!.sugarsG}g"
-                                  : "—",
-                              label: "Sugar",
-                            ),
-                            _VertDivider(),
-                            _NutrientStat(
-                              icon: "🌾",
-                              value: off.nutrients!.fiberG != null
-                                  ? "${off.nutrients!.fiberG}g"
-                                  : "—",
-                              label: "Fiber",
-                            ),
-                            _VertDivider(),
-                            _NutrientStat(
-                              icon: "💪",
-                              value: off.nutrients!.proteinsG != null
-                                  ? "${off.nutrients!.proteinsG}g"
-                                  : "—",
-                              label: "Protein",
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── NutriScore + NOVA Row ──────────────────────────
-                if (off != null &&
-                    (off.nutriscoreGrade != null || off.novaGroup != null))
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                      child: Row(
-                        children: [
-                          if (off.nutriscoreGrade != null)
-                            Expanded(
-                              child: _InfoBadge(
-                                label: "NutriScore",
-                                value: off.nutriscoreGrade!.toUpperCase(),
-                                color: AppTheme.nutriscoreColor(off.nutriscoreGrade),
-                              ),
-                            ),
-                          if (off.nutriscoreGrade != null && off.novaGroup != null)
-                            const SizedBox(width: 12),
-                          if (off.novaGroup != null)
-                            Expanded(
-                              child: _InfoBadge(
-                                label: "NOVA Group",
-                                value: "${off.novaGroup} / 4",
-                                color: off.novaGroup! <= 2
-                                    ? AppTheme.cleanGreen
-                                    : off.novaGroup! == 3
-                                        ? AppTheme.watchOrange
-                                        : AppTheme.highRiskRed,
-                                subtitle: _novaLabel(off.novaGroup!),
-                              ),
-                            ),
                         ],
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
 
-                // ── AI Insight ─────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                    child: Container(
+                    // ── Health Rating Score Banner (Figma #2:2006) ───────────
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.scoreHeaderGradient(score),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Score ring 80x80 (Figma #12:45)
+                          Column(
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: Text(
+                                  '$score/100',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'WILLOW SCORE',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+
+                          // Rating explanation
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  a.scoreLabel.isNotEmpty
+                                      ? a.scoreLabel
+                                      : AppTheme.scoreLabel(score),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  a.offData?.aiInsight ??
+                                      (score >= 75
+                                          ? 'Clean profile with minimal risk additives.'
+                                          : (score >= 60
+                                              ? 'Moderate processing; balanced nutrient ratio.'
+                                              : 'High risk ingredients or sugars detected in label.')),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Nutrition at a Glance (Figma #2:2013) ────────────────
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Nutrition at a glance',
+                                style: GoogleFonts.inter(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'Per 100 g',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF7B5CF0),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Energy row
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Energy',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  nutrients?.energyKcal != null
+                                      ? '${nutrients!.energyKcal!.toInt()} kcal'
+                                      : 'Label data pending',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(color: Color(0xFFEEEEF5), height: 1),
+                          const SizedBox(height: 8),
+
+                          // Nutrients Rows with colored vertical marker bars (Figma layout_f316f12d)
+                          _buildNutrientRow(
+                            name: 'Sugars',
+                            amount: nutrients?.sugarsG != null
+                                ? '${nutrients!.sugarsG} g'
+                                : (a.flagged.any((f) => f.canonical.contains('sugar')) ? 'High' : 'N/A'),
+                            markerColor: AppTheme.redDanger,
+                            badgeText: nutrients?.sugarsG != null
+                                ? (nutrients!.sugarsG! > 10 ? 'High' : 'Low')
+                                : 'High',
+                            badgeColor: AppTheme.redDanger,
+                            badgeBg: AppTheme.redSoftBg,
+                          ),
+                          _buildNutrientRow(
+                            name: 'Saturated fat',
+                            amount: nutrients?.saturatedFatG != null
+                                ? '${nutrients!.saturatedFatG} g'
+                                : 'Moderate',
+                            markerColor: AppTheme.amberWarning,
+                            badgeText: 'Moderate',
+                            badgeColor: AppTheme.amberWarning,
+                            badgeBg: AppTheme.amberSoftBg,
+                          ),
+                          _buildNutrientRow(
+                            name: 'Fibre',
+                            amount: nutrients?.fiberG != null
+                                ? '${nutrients!.fiberG} g'
+                                : 'Good',
+                            markerColor: AppTheme.greenSuccess,
+                            badgeText: 'Good',
+                            badgeColor: AppTheme.greenSuccess,
+                            badgeBg: AppTheme.greenSoftBg,
+                          ),
+                          _buildNutrientRow(
+                            name: 'Salt',
+                            amount: nutrients?.saltG != null
+                                ? '${nutrients!.saltG} g'
+                                : 'Low',
+                            markerColor: AppTheme.saltBlue,
+                            badgeText: 'Low',
+                            badgeColor: AppTheme.saltBlue,
+                            badgeBg: AppTheme.saltSoftBg,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Inside the Ingredients (Figma #2:2041) ────────────────
+                    Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryPinkBg,
-                                  borderRadius: BorderRadius.circular(8),
+                              Text(
+                                'Inside the ingredients',
+                                style: GoogleFonts.inter(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
                                 ),
+                              ),
+                              Text(
+                                '$totalIngredients ingredients',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF7B5CF0),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Text with highlighted additives / ingredients
+                          if (a.flagged.isNotEmpty) ...[
+                            Text(
+                              'Flagged Additives & Sugars:',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.redDanger,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...a.flagged.map(
+                              (f) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("✨", style: TextStyle(fontSize: 11)),
-                                    const SizedBox(width: 4),
-                                    const Text(
-                                      "AI Insight",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.primaryPink,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryPink,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        "Beta",
-                                        style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700),
+                                    const Text('• ', style: TextStyle(color: AppTheme.redDanger)),
+                                    Expanded(
+                                      child: RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '${f.canonical}: ',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppTheme.textPrimary,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: f.healthEffects,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Spacer(),
-                              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textMuted),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            off?.aiInsight ??
-                                (a.flagged.isNotEmpty
-                                    ? "Contains ${a.flagged.length} flagged additive(s). ${a.flagged.first.healthEffects}"
-                                    : "This product appears safe based on FSSAI ingredient analysis. ${a.clean.length} clean ingredients verified."),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
-                              height: 1.5,
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+
+                          if (a.clean.isNotEmpty) ...[
+                            Text(
+                              'Clean Ingredients Detected:',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.greenDeep,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              a.clean.map((c) => c.canonical).join(', '),
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+
+                          // Ingredient insight callout (Figma #2:2046)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFFF5E0), Color(0xFFFFF0D0)],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFB800),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    a.flagged.isNotEmpty
+                                        ? '${a.flagged.length} additives or refined sugars detected. Ingredients are listed from most to least by weight.'
+                                        : 'Clean ingredient formulation. Minimal or zero synthetic additives detected.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: const Color(0xFFA06000),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          if (a.fssaiNumber != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cleanGreenBg,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                "🛡️ FSSAI: ${a.fssaiNumber}",
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.cleanGreen,
-                                ),
-                              ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Score Methodology Link (Figma #2:2050) ───────────────
+                    GestureDetector(
+                      onTap: _showScoreMethodology,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Health Benefit + Best Time Tags ────────────────
-                if (off?.healthBenefit != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _TagButton(
-                              icon: Icons.shield_outlined,
-                              label: "Health Benefits",
-                              sublabel: off!.healthBenefit!,
-                              color: AppTheme.primaryPink,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _TagButton(
-                              icon: Icons.wb_sunny_outlined,
-                              label: "Best Time to Eat",
-                              sublabel: off.bestTimeToEat ?? "Any Time",
-                              color: AppTheme.watchOrange,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ── Flagged Additives ──────────────────────────────
-                if (a.flagged.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text("⚠️", style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 6),
-                              const Text(
-                                "Flagged Additives",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.alertRedBg,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  "${a.flagged.length}",
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.highRiskRed,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 30,
+                                  height: 30,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEDE9FF),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  child: const Icon(
+                                    Icons.bar_chart_rounded,
+                                    color: AppTheme.primaryPurple,
+                                    size: 16,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ...a.flagged.map((f) => _FlaggedCard(ingredient: f)),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ── OFF Additives (if any) ─────────────────────────
-                if (off != null && off.additives.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Additives (from Open Food Facts)",
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: off.additives.map((ad) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppTheme.alertOrangeBg,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                ad,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.watchOrange,
+                                const SizedBox(width: 10),
+                                Text(
+                                  'How this score is built',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
                                 ),
-                              ),
-                            )).toList(),
-                          ),
-                        ],
+                              ],
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.textSecondary,
+                              size: 18,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 18),
 
-                // ── Alternatives ───────────────────────────────────
-                if (a.alternatives.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Healthy Alternatives",
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
+                    // ── Action CTA Button "Explore better-rated swaps" (Figma #2:2055) ──
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AlternativesScreen(
+                              originalProduct: a,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          ...a.alternatives.map(
-                            (alt) => Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
+                        );
+                      },
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.exploreSwapsBtnGradient,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryPurple.withValues(alpha: 0.35),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Explore better-rated swaps',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppTheme.cardBorder),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cleanGreenBg,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        "${alt.score}",
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.cleanGreen,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          alt.name,
-                                          style: const TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          alt.price,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
+                            const SizedBox(width: 10),
+                            const Icon(
+                              Icons.eco_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Medical Notice (Figma #2:2058)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          color: AppTheme.textMuted,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Illustrative products & scores. Not medical advice.',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: AppTheme.textMuted,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 40)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _novaLabel(int group) {
-    switch (group) {
-      case 1: return "Unprocessed";
-      case 2: return "Processed Ingredient";
-      case 3: return "Processed Food";
-      case 4: return "Ultra-Processed";
-      default: return "";
-    }
-  }
-}
-
-// ── Score Gauge Widget ─────────────────────────────────────────────────
-class _ScoreGauge extends StatelessWidget {
-  final int score;
-  final double progress;
-  final Color color;
-
-  const _ScoreGauge({
-    required this.score,
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      height: 150,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(150, 150),
-            painter: _GaugePainter(
-              progress: progress * (score / 100.0),
-              color: color,
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "$score",
-                style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w900,
-                  color: color,
-                  height: 1,
-                ),
-              ),
-              Text(
-                "/100",
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              const Text(
-                "Overall Score",
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GaugePainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  _GaugePainter({required this.progress, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 10;
-    final strokeWidth = 10.0;
-
-    // Background track
-    final bgPaint = Paint()
-      ..color = const Color(0xFFEEF0F5)
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi * 0.8,
-      math.pi * 1.6,
-      false,
-      bgPaint,
-    );
-
-    // Foreground arc
-    final fgPaint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi * 0.8,
-      math.pi * 1.6 * progress,
-      false,
-      fgPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_GaugePainter old) => old.progress != progress;
-}
-
-// ── Nutrient Stat Widget ──────────────────────────────────────────────
-class _NutrientStat extends StatelessWidget {
-  final String icon;
-  final String value;
-  final String label;
-
-  const _NutrientStat({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 20)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-        ),
-      ],
-    );
-  }
-}
-
-class _VertDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 40,
-      color: AppTheme.dividerColor,
-    );
-  }
-}
-
-// ── Info Badge (NutriScore / NOVA) ────────────────────────────────────
-class _InfoBadge extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final String? subtitle;
-
-  const _InfoBadge({
-    required this.label,
-    required this.value,
-    required this.color,
-    this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: TextStyle(fontSize: 10.5, color: color),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Tag Button (Health Benefit / Best Time) ──────────────────────────
-class _TagButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String sublabel;
-  final Color color;
-
-  const _TagButton({
-    required this.icon,
-    required this.label,
-    required this.sublabel,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                Text(
-                  sublabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Flagged Ingredient Card ───────────────────────────────────────────
-class _FlaggedCard extends StatelessWidget {
-  final FlaggedIngredient ingredient;
-
-  const _FlaggedCard({required this.ingredient});
-
-  @override
-  Widget build(BuildContext context) {
-    final isHigh = ingredient.riskLevel == 'high';
-    final color = isHigh ? AppTheme.highRiskRed : AppTheme.watchOrange;
-    final bgColor = isHigh ? AppTheme.alertRedBg : AppTheme.alertOrangeBg;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(top: 5),
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        ingredient.canonical,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
                         ),
-                      ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isHigh ? "HIGH" : "WATCH",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  ingredient.healthEffects,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNutrientRow({
+    required String name,
+    required String amount,
+    required Color markerColor,
+    required String badgeText,
+    required Color badgeColor,
+    required Color badgeBg,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          // Vertical colored marker bar (Figma layout_f316f12d)
+          Container(
+            width: 6,
+            height: 28,
+            decoration: BoxDecoration(
+              color: markerColor,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+          Text(
+            amount,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Level badge (Figma layout_d2a5df53)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: badgeBg,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              badgeText,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: badgeColor,
+              ),
             ),
           ),
         ],
