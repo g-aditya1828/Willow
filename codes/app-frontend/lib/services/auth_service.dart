@@ -43,11 +43,25 @@ class AuthService extends ChangeNotifier {
   String? _token;
   UserProfile? _currentUser;
   bool _initialized = false;
+  bool _isGuest = false;
 
-  bool get isAuthenticated => _token != null && _currentUser != null;
+  bool get isAuthenticated => (_token != null && _currentUser != null) || _isGuest;
+  bool get isGuest => _isGuest;
   String? get token => _token;
   UserProfile? get currentUser => _currentUser;
   bool get isInitialized => _initialized;
+
+  void continueAsGuest() {
+    _isGuest = true;
+    _currentUser = UserProfile(
+      id: 0,
+      username: 'Alex',
+      email: 'alex@willow.app',
+      scanCount: 4,
+      favoriteCount: 2,
+    );
+    notifyListeners();
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -161,6 +175,7 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     _token = null;
     _currentUser = null;
+    _isGuest = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);

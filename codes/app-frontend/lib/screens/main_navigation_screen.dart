@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'scan_screen.dart';
 import 'history_screen.dart';
-import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -16,47 +17,72 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
   void _onTabSelected(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    if (_currentIndex == index) return;
+    setState(() => _currentIndex = index);
+    HapticFeedback.selectionClick();
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      HomeScreen(onGoToHistory: () => _onTabSelected(2)),
-      const ScanScreen(),
-      const HistoryScreen(),
-      const ProfileScreen(),
-    ];
-
     return Scaffold(
+      backgroundColor: AppTheme.bgLight,
       body: IndexedStack(
         index: _currentIndex,
-        children: pages,
+        children: [
+          HomeScreen(
+            onGoToScan: () => _onTabSelected(1),
+            onGoToHistory: () => _onTabSelected(2),
+          ),
+          ScanScreen(
+            onBackToHome: () => _onTabSelected(0),
+          ),
+          const HistoryScreen(),
+        ],
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          border: const Border(top: BorderSide(color: Color(0xFFEFEFF3), width: 1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
+          border: Border(
+            top: BorderSide(color: AppTheme.borderLight, width: 1),
+          ),
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            padding: const EdgeInsets.only(top: 10, bottom: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, "Home"),
-                _buildScanNavItem(1),
-                _buildNavItem(2, Icons.history_rounded, Icons.history_rounded, "History"),
-                _buildNavItem(3, Icons.person_outline_rounded, Icons.person_rounded, "Profile"),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      index: 0,
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                    ),
+                    _buildNavItem(
+                      index: 1,
+                      icon: Icons.qr_code_scanner_rounded,
+                      label: 'Scan',
+                    ),
+                    _buildNavItem(
+                      index: 2,
+                      icon: Icons.access_time_rounded,
+                      label: 'History',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Home indicator from Figma (#2:2231 / #2:2146)
+                Container(
+                  width: 128,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.filterActiveGradient,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
               ],
             ),
           ),
@@ -65,78 +91,43 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  Widget _buildNavItem(
-    int index,
-    IconData inactiveIcon,
-    IconData activeIcon,
-    String label,
-  ) {
-    final isSelected = _currentIndex == index;
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final isActive = _currentIndex == index;
     return GestureDetector(
-      onTap: () => _onTabSelected(index),
       behavior: HitTestBehavior.opaque,
+      onTap: () => _onTabSelected(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isSelected ? activeIcon : inactiveIcon,
-            color: isSelected ? AppTheme.primaryPink : const Color(0xFFB0B0BB),
-            size: 24,
+          // Figma #2:2228 / layout_fa7c620e: 54x30 capsule
+          Container(
+            width: 54,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: isActive ? AppTheme.navActivePillGradient : null,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isActive ? AppTheme.primaryPurple : AppTheme.textMuted,
+            ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? AppTheme.primaryPink : const Color(0xFFB0B0BB),
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? AppTheme.primaryPurple : AppTheme.textMuted,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildScanNavItem(int index) {
-    final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => _onTabSelected(index),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
-        decoration: BoxDecoration(
-          gradient: isSelected ? AppTheme.pinkGradient : null,
-          color: isSelected ? null : const Color(0xFFF5F5FA),
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryPink.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.document_scanner_rounded,
-              color: isSelected ? Colors.white : AppTheme.textPrimary,
-              size: 20,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              "Scan",
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : AppTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

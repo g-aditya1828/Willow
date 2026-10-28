@@ -254,6 +254,11 @@ class ScanHistoryItem {
   final String? fssaiNumber;
   final bool isFavorite;
   final String createdAt;
+  final bool isFallback;
+  final String? fallbackNote;
+  final List<FlaggedIngredient> flagged;
+  final List<CleanIngredient> clean;
+  final List<String> unknown;
 
   ScanHistoryItem({
     required this.id,
@@ -265,10 +270,59 @@ class ScanHistoryItem {
     this.fssaiNumber,
     required this.isFavorite,
     required this.createdAt,
+    this.isFallback = false,
+    this.fallbackNote,
+    this.flagged = const [],
+    this.clean = const [],
+    this.unknown = const [],
   });
 
+  String get timeAgo {
+    if (createdAt.isEmpty) return 'Recent';
+    try {
+      final dt = DateTime.parse(createdAt);
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) {
+        return '${diff.inMinutes <= 0 ? 1 : diff.inMinutes}m ago';
+      }
+      if (diff.inHours < 24) {
+        return '${diff.inHours}h ago';
+      }
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return createdAt;
+    }
+  }
+
   factory ScanHistoryItem.fromJson(Map<String, dynamic> json) {
-    final flaggedList = json['flagged'] as List? ?? [];
+    final rawFlagged = json['flagged'] as List? ?? [];
+    final flaggedList = rawFlagged
+        .map((f) => f is Map<String, dynamic>
+            ? FlaggedIngredient.fromJson(f)
+            : FlaggedIngredient(
+                canonical: f.toString(),
+                riskLevel: 'watch',
+                healthEffects: '',
+                rawToken: f.toString(),
+              ))
+        .toList();
+
+    final rawClean = json['clean'] as List? ?? [];
+    final cleanList = rawClean
+        .map((c) => c is Map<String, dynamic>
+            ? CleanIngredient.fromJson(c)
+            : CleanIngredient(
+                canonical: c.toString(),
+                healthEffects: '',
+                rawToken: c.toString(),
+              ))
+        .toList();
+
+    final rawUnknown = json['unknown'] as List? ?? [];
+    final unknownList = rawUnknown.map((u) => u.toString()).toList();
+
     return ScanHistoryItem(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       productName: json['product_name'] ?? 'Product',
@@ -279,6 +333,11 @@ class ScanHistoryItem {
       fssaiNumber: json['fssai_number'],
       isFavorite: json['is_favorite'] == true || json['is_favorite'] == 1,
       createdAt: json['created_at'] ?? '',
+      isFallback: json['is_fallback'] == true || json['is_fallback'] == 1,
+      fallbackNote: json['fallback_note'],
+      flagged: flaggedList,
+      clean: cleanList,
+      unknown: unknownList,
     );
   }
 }

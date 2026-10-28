@@ -2,8 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/ingredient_scanner_service.dart';
+import '../model/scan_model.dart';
 import '../theme/app_theme.dart';
 import 'results_screen.dart';
 
@@ -15,8 +17,7 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen>
-    with SingleTickerProviderStateMixin {
+class _ScanScreenState extends State<ScanScreen> with SingleTickerProviderStateMixin {
   final _picker = ImagePicker();
   final _scanner = IngredientScannerService();
   final _manualCtrl = TextEditingController();
@@ -27,32 +28,32 @@ class _ScanScreenState extends State<ScanScreen>
   bool _isScanning = false;
   bool _showManualEntry = false;
   String _statusText = '';
-  String? _qualityWarning;
+  ProductAnalysis? _detectedProduct;
 
-  late AnimationController _pulseCtrl;
-  late Animation<double> _pulseAnim;
+  late AnimationController _scanAnimCtrl;
+  late Animation<double> _scanLineAnim;
 
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(
+    _scanAnimCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 2200),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    _scanLineAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scanAnimCtrl, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
+    _scanAnimCtrl.dispose();
     _manualCtrl.dispose();
     _productNameCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _captureOrUpload(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -62,58 +63,51 @@ class _ScanScreenState extends State<ScanScreen>
       );
       if (picked == null) return;
 
-      // Read bytes for display (works on both web and native)
       final bytes = await picked.readAsBytes();
-
-      // On native platforms, also keep a File reference for the scanner
       File? file;
-      if (!kIsWeb) {
-        file = File(picked.path);
-      }
+      if (!kIsWeb) file = File(picked.path);
 
       setState(() {
         _imageBytes = bytes;
         _selectedImage = file;
         _isScanning = true;
-        _qualityWarning = null;
-        _statusText = 'Reading ingredient label...';
+        _detectedProduct = null;
+        _statusText = 'Analyzing ingredient label...';
       });
-      await _runScan(picked);
+
+      // Call backend scan-and-analyze API
+      final analysis = await _scanner.scanAndAnalyze(picked);
+
+      if (!mounted) return;
+      setState(() => _isScanning = false);
+
+      if (analysis != null) {
+        // Backend returned real result!
+        setState(() {
+          _detectedProduct = analysis;
+        });
+      } else {
+        _showError('No ingredients could be detected. Try a clearer photo or enter manually.');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isScanning = false);
-      _showError('Could not access camera/gallery: $e');
+      _showError('Could not process image: $e');
     }
   }
 
-  Future<void> _runScan(XFile picked) async {
-    setState(() => _statusText = 'Running AI analysis...');
-    final analysis = await _scanner.scanAndAnalyze(picked);
-    if (!mounted) return;
-    setState(() => _isScanning = false);
-
-    if (analysis != null) {
-      _goToResults(analysis, _selectedImage);
-    } else {
-      setState(() {
-        _qualityWarning =
-            'Could not extract ingredients. Please retake with better '
-            'lighting and ensure the full ingredient label is in frame.';
-      });
-    }
-  }
-
-  Future<void> _submitManualIngredients() async {
-    final raw = _manualCtrl.text.trim();
-    if (raw.isEmpty) {
-      _showError('Please type at least one ingredient');
+  Future<void> _handleManualAnalyze() async {
+    final text = _manualCtrl.text.trim();
+    if (text.isEmpty) {
+      _showError('Please enter at least one ingredient');
       return;
     }
-    final productName = _productNameCtrl.text.trim().isEmpty
-        ? 'Manually Entered Product'
-        : _productNameCtrl.text.trim();
 
-    final ingredients = raw
+    final pName = _productNameCtrl.text.trim().isNotEmpty
+        ? _productNameCtrl.text.trim()
+        : 'Food Product';
+
+    final ingredients = text
         .split(RegExp(r'[,;\n]'))
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -121,28 +115,36 @@ class _ScanScreenState extends State<ScanScreen>
 
     setState(() {
       _isScanning = true;
-      _statusText = 'Analyzing your ingredients...';
+      _statusText = 'Analyzing ingredients against FSSAI database...';
     });
 
     final analysis = await _scanner.analyze(
-      productName: productName,
+      productName: pName,
       ingredients: ingredients,
     );
 
     if (!mounted) return;
-    setState(() => _isScanning = false);
+    setState(() {
+      _isScanning = false;
+      _showManualEntry = false;
+    });
 
     if (analysis != null) {
-      _goToResults(analysis, null);
+      setState(() {
+        _detectedProduct = analysis;
+      });
     } else {
-      _showError('Analysis failed. Please check your connection and try again.');
+      _showError('Could not analyze product. Check backend connection.');
     }
   }
 
-  void _goToResults(dynamic analysis, File? file) {
+  void _navigateToResults(ProductAnalysis analysis) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ResultsScreen(analysis: analysis, imageFile: file),
+        builder: (_) => ResultsScreen(
+          analysis: analysis,
+          imageFile: _selectedImage,
+        ),
       ),
     );
   }
@@ -151,7 +153,7 @@ class _ScanScreenState extends State<ScanScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: AppTheme.highRiskRed,
+        backgroundColor: AppTheme.redDanger,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -160,463 +162,563 @@ class _ScanScreenState extends State<ScanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgWhite,
+      backgroundColor: AppTheme.bgDark,
       body: Stack(
         children: [
-          Positioned(
-            top: -50,
-            right: -50,
+          // ── Camera Feed Simulated Viewport ────────────────────────
+          Positioned.fill(
+            child: _imageBytes != null
+                ? Image.memory(
+                    _imageBytes!,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    color: const Color(0xFF0F1A2E),
+                  ),
+          ),
+
+          // ── Camera Shading Gradient Overlay (Figma #2:1950) ───────
+          Positioned.fill(
             child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryPink.withValues(alpha: 0.06),
+              decoration: const BoxDecoration(
+                gradient: AppTheme.cameraOverlayGradient,
               ),
             ),
           ),
+
           SafeArea(
             child: Column(
               children: [
+                // ── Camera Header (Figma #2:1957) ─────────────────────
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Close / Back button
                       GestureDetector(
-                        onTap: widget.onBackToHome ??
-                            () => Navigator.of(context).maybePop(),
+                        onTap: widget.onBackToHome,
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppTheme.pillSurface,
+                            color: Colors.white.withValues(alpha: 0.13),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 16,
-                            color: AppTheme.textPrimary,
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Scan Food Label',
-                        style: TextStyle(
-                          fontSize: 18,
+                      Text(
+                        'Scan a product',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                          color: Colors.white,
                         ),
                       ),
-                      const Spacer(),
+                      // Gallery button
                       GestureDetector(
-                        onTap: () =>
-                            setState(() => _showManualEntry = !_showManualEntry),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 7),
+                        onTap: () => _pickImage(ImageSource.gallery),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: _showManualEntry
-                                ? AppTheme.primaryPink
-                                : AppTheme.pillSurface,
-                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.white.withValues(alpha: 0.13),
+                            shape: BoxShape.circle,
                           ),
-                          child: Text(
-                            'Manual',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: _showManualEntry
-                                  ? Colors.white
-                                  : AppTheme.textSecondary,
-                            ),
+                          child: const Icon(
+                            Icons.image_outlined,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+
                 Expanded(
-                  child: _showManualEntry
-                      ? _buildManualEntryView()
-                      : _buildCameraView(),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 12),
+
+                        // Instructions (Figma #2:1962)
+                        Text(
+                          'Scan the product',
+                          style: GoogleFonts.inter(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Place the ingredient list inside the frame.\nWillow will take it from here.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                            color: const Color(0xFFC8D8FF),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── Viewfinder with Corner Brackets & Scan Line ────────
+                        Center(
+                          child: SizedBox(
+                            width: 294,
+                            height: 168,
+                            child: Stack(
+                              children: [
+                                // Custom Corner Brackets Frame (Figma #2:1966)
+                                CustomPaint(
+                                  size: const Size(294, 168),
+                                  painter: ViewfinderPainter(),
+                                ),
+
+                                // Animated Scanning Line
+                                AnimatedBuilder(
+                                  animation: _scanLineAnim,
+                                  builder: (context, _) {
+                                    return Positioned(
+                                      top: _scanLineAnim.value * 160,
+                                      left: 12,
+                                      right: 12,
+                                      child: Container(
+                                        height: 2,
+                                        decoration: const BoxDecoration(
+                                          gradient: AppTheme.scanLineGradient,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.cyanAccent,
+                                              blurRadius: 8,
+                                              spreadRadius: 1,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+
+                                if (_isScanning)
+                                  Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.7),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: AppTheme.cyanAccent,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _statusText,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+
+                        // Capture / Flash Controls
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Flash icon button (Figma #2:1971)
+                            Container(
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFFA855F7).withValues(alpha: 0.25),
+                                    const Color(0xFF06B6D4).withValues(alpha: 0.25),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.flash_off_rounded,
+                                color: Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+
+                            // Camera Shutter Button
+                            GestureDetector(
+                              onTap: _isScanning ? null : () => _pickImage(ImageSource.camera),
+                              child: Container(
+                                width: 70,
+                                height: 70,
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: AppTheme.primaryButtonGradient,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt_rounded,
+                                    color: Colors.white,
+                                    size: 30,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+
+                            // Gallery icon button
+                            GestureDetector(
+                              onTap: () => _pickImage(ImageSource.gallery),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFFA855F7).withValues(alpha: 0.25),
+                                      const Color(0xFF06B6D4).withValues(alpha: 0.25),
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.photo_library_outlined,
+                                  color: Colors.white,
+                                  size: 21,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Detected Product Card (Figma #2:1973) ──────────────
+                        // Only arrives from backend when actually scanned!
+                        if (_detectedProduct != null) ...[
+                          _buildDetectedProductCard(_detectedProduct!),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Manual entry toggle (Figma #2:1983)
+                        GestureDetector(
+                          onTap: () => setState(() => _showManualEntry = !_showManualEntry),
+                          child: Text(
+                            _showManualEntry
+                                ? 'Hide manual entry'
+                                : "Can't scan? Enter barcode / text manually",
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFFC8D8FF),
+                            ),
+                          ),
+                        ),
+
+                        // Manual Entry Form
+                        if (_showManualEntry) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'Manual Ingredient Analysis',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _productNameCtrl,
+                                  decoration: InputDecoration(
+                                    hintText: 'Product Name (e.g. Masala Oats)',
+                                    fillColor: AppTheme.primaryPurpleSoft,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _manualCtrl,
+                                  maxLines: 3,
+                                  decoration: InputDecoration(
+                                    hintText: 'Paste ingredients list separated by commas...',
+                                    fillColor: AppTheme.primaryPurpleSoft,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: _handleManualAnalyze,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryPurple,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(100),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Analyze Ingredients',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          if (_isScanning)
-            Container(
-              color: Colors.black.withValues(alpha: 0.55),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(
-                      color: AppTheme.primaryPink,
-                      strokeWidth: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _statusText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildCameraView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 220,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FC),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.cardBorder),
+  Widget _buildDetectedProductCard(ProductAnalysis product) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172E).withValues(alpha: 0.22),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Accent Line (Figma #12:33)
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: AppTheme.detectedCardAccentGradient,
+              ),
             ),
-            child: _imageBytes != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.memory(_imageBytes!, fit: BoxFit.cover),
-                  )
-                : _selectedImage != null && !kIsWeb
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                      )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      ScaleTransition(
-                        scale: _pulseAnim,
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.pinkGradient,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppTheme.primaryPink.withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 6),
+                      // Product image wrap (Figma #12:34)
+                      Container(
+                        width: 58,
+                        height: 72,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryPurpleSoft,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE9D5FF), width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2_rounded,
+                          color: AppTheme.primaryPurple,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+
+                      // Identification details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Eyebrow pill (Figma #12:35)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFEDE9FE), Color(0xFFCFFAFE)],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            ],
+                              child: Text(
+                                'READY TO EXPLORE',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryPurple,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              product.productName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF111827),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              product.category.isNotEmpty
+                                  ? product.category
+                                  : 'Scanned Food Product',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action Button "See product rating" (Figma #2:1980)
+                  GestureDetector(
+                    onTap: () => _navigateToResults(product),
+                    child: Container(
+                      height: 54,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.seeRatingBtnGradient,
+                        borderRadius: BorderRadius.circular(100),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
-                          child: const Icon(
-                            Icons.document_scanner_rounded,
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'See product rating',
+                            style: GoogleFonts.inter(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
                             color: Colors.white,
-                            size: 32,
+                            size: 18,
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Willow badge (Figma #12:37)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryPurpleSoft,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF00C0E8),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Powered by Willow',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryPurple,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Point camera at ingredient label',
-                        style: TextStyle(
-                          fontSize: 15,
+                      Text(
+                        'Score: ${product.displayScore}/100',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Works with any packaged food product',
-                        style: TextStyle(
-                          fontSize: 12.5,
                           color: AppTheme.textSecondary,
                         ),
                       ),
                     ],
                   ),
-          ),
-          const SizedBox(height: 14),
-          if (_qualityWarning != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: AppTheme.alertOrangeBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: AppTheme.watchOrange.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: AppTheme.watchOrange, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _qualityWarning!,
-                      style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppTheme.textPrimary,
-                          height: 1.4),
-                    ),
-                  ),
                 ],
-              ),
-            ),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryPinkBg,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '\u{1F4F8} Capture Tips',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.primaryPink,
-                  ),
-                ),
-                SizedBox(height: 8),
-                _TipRow(
-                    icon: '\u{1F4A1}',
-                    tip: 'Use natural light — avoid flash on shiny packaging'),
-                _TipRow(
-                    icon: '\u{1F3AF}',
-                    tip: 'Keep the entire ingredient list in frame'),
-                _TipRow(
-                    icon: '\u{1F4CF}',
-                    tip: 'Hold 15–25 cm from the label for best focus'),
-                _TipRow(
-                    icon: '\u{1F524}',
-                    tip: 'English ingredient lists currently work best'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.photo_library_rounded,
-                  label: 'Gallery',
-                  onTap: () => _captureOrUpload(ImageSource.gallery),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: () => _captureOrUpload(ImageSource.camera),
-                  child: Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.pinkGradient,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryPink.withValues(alpha: 0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt_rounded,
-                            color: Colors.white, size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          'Scan Now',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => setState(() => _showManualEntry = true),
-            child: const Center(
-              child: Text(
-                "Can't scan? Type ingredients manually \u2192",
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppTheme.primaryPink,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildManualEntryView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.cardBorder),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '\u270D\uFE0F Manual Ingredient Entry',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Use this when OCR fails or the label is damaged.',
-                  style: TextStyle(
-                      fontSize: 12.5, color: AppTheme.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _productNameCtrl,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              hintText: 'Product name (optional)',
-              prefixIcon:
-                  Icon(Icons.inventory_2_outlined, color: AppTheme.textMuted),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _manualCtrl,
-            maxLines: 7,
-            decoration: const InputDecoration(
-              hintText:
-                  'Paste or type ingredient list here...\n\nExample:\nSugar, Refined Wheat Flour, Palm Oil, INS 211, Tartrazine',
-              alignLabelWithHint: true,
-              prefixIcon: Padding(
-                padding: EdgeInsets.only(bottom: 80),
-                child: Icon(Icons.list_alt_rounded, color: AppTheme.textMuted),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Separate ingredients with commas or new lines',
-            style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _isScanning ? null : _submitManualIngredients,
-            child: const Text('Analyze Ingredients'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: () => setState(() => _showManualEntry = false),
-            child: const Text('Back to Camera Scan'),
-          ),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-}
-
-class _TipRow extends StatelessWidget {
-  final String icon;
-  final String tip;
-
-  const _TipRow({required this.icon, required this.tip});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 13)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tip,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppTheme.textSecondary,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: AppTheme.pillSurface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppTheme.cardBorder),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 20),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
               ),
             ),
           ],
@@ -624,4 +726,37 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Viewfinder Custom Painter for Corner Brackets ──────────────
+class ViewfinderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFA78BFA)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    const cornerLength = 24.0;
+
+    // Top-left corner
+    canvas.drawLine(const Offset(0, 0), const Offset(cornerLength, 0), paint);
+    canvas.drawLine(const Offset(0, 0), const Offset(0, cornerLength), paint);
+
+    // Top-right corner
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width - cornerLength, 0), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, cornerLength), paint);
+
+    // Bottom-left corner
+    canvas.drawLine(Offset(0, size.height), Offset(cornerLength, size.height), paint);
+    canvas.drawLine(Offset(0, size.height), Offset(0, size.height - cornerLength), paint);
+
+    // Bottom-right corner
+    canvas.drawLine(Offset(size.width, size.height), Offset(size.width - cornerLength, size.height), paint);
+    canvas.drawLine(Offset(size.width, size.height), Offset(size.width, size.height - cornerLength), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
